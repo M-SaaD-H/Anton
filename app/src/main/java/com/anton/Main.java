@@ -1,12 +1,11 @@
 package com.anton;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 
 import com.anton.db.DBService;
 
-public class Anton {
+public class Main {
   public static void main(String[] args) {
     DBService db = new DBService("storage");
     BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
