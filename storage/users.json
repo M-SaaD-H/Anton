@@ -1,8 +1,15 @@
-[
-  {
-    "id": 1,
-    "name": "Anton",
-    "email": "anton@gmail.com",
-    "password": "anton@123"
-  }
-]
+[ {
+  "id" : "001",
+  "createdAt" : 1755106238087,
+  "updatedAt" : 1755106238088,
+  "name" : "Anton",
+  "email" : "anton@gmail.com",
+  "password" : "anton@123"
+}, {
+  "id" : "003",
+  "createdAt" : 1755106267533,
+  "updatedAt" : 1755106267533,
+  "name" : "Belu",
+  "email" : "belu@pardhan.com",
+  "password" : "belu@123"
+} ]

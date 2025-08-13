@@ -18,4 +18,13 @@ public class User extends Entity {
     this.email = email;
     this.password = password;
   }
+
+  public User() {
+    super();
+  }
+
+  @Override
+  public String toString() {
+    return "ID: " + this.getId() + "\nName: " + this.getName() + "\nEmail: " + this.getEmail() + "\nPassword: " + "Not gonna reveal this you mf...";
+  }
 }

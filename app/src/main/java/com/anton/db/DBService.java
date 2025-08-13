@@ -6,42 +6,44 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import com.anton.entites.Entity;
+import com.fasterxml.jackson.databind.type.CollectionType;
+import com.anton.entites.User;
 
 public class DBService {
 	private final String storagePath;
 	private final ObjectMapper objectMapper = new ObjectMapper();
-	private List<Entity> entitiesList;
+	private List<User> usersList;
 
 	public DBService(String storagePath) {
 		this.storagePath = storagePath;
+		this.usersList = loadData(this.storagePath + "/users.json", User.class);
 	}
 
-	public void create(Entity entity) {
-		entitiesList.add(entity);
+	public void create(User user) {
+		usersList.add(user);
+		saveData();
 	}
 
 	public void delete(String id) {
-		entitiesList.removeIf(e -> e.getId() == id);
+		usersList = usersList.stream().filter(u -> !id.equals(u.getId())).toList();
+		saveData();
 	}
 
-	public Entity findById(String id) {
-		return entitiesList
+	public User findById(String id) {
+		return usersList
 			.stream()
 			.filter(e -> e.getId().equals(id))
 			.findFirst()
 			.orElse(null);
 	}
 
-	public List<Entity> find() {
-		return entitiesList;
+	public List<User> find() {
+		return usersList;
 	}
 
-	public List<Entity> find(Map<String, Object> params) {
-		return entitiesList
+	public List<User> find(Map<String, Object> params) {
+		return usersList
 			.stream()
 			.filter(e -> {
 				for (Map.Entry<String, Object> entry : params.entrySet()) {
@@ -52,7 +54,7 @@ public class DBService {
 					
 					try {
 						String methodName = "get" + propName.substring(0, 1).toUpperCase() + propName.substring(1);
-						Method method = Entity.class.getMethod(methodName);
+						Method method = User.class.getMethod(methodName);
 
 						Object actualValue = method.invoke(e);
 						return actualValue != null && actualValue.equals(value);
@@ -68,19 +70,22 @@ public class DBService {
 			.collect(Collectors.toList());
 	}
 
-	public void loadData() {
+	public <T> List<T> loadData(String filePath, Class<T> c) {
 		try {
-			File entitysDataFile = new File(this.storagePath + "/users.json");
-			entitiesList = objectMapper.readValue(entitysDataFile, new TypeReference<List<Entity>>() {});
+			File data = new File(filePath);
+			CollectionType listType = objectMapper.getTypeFactory().constructCollectionType(List.class, c);
+			return objectMapper.readValue(data, listType);
 		} catch (Exception e) {
+			System.out.println("Error while loading data E: " + e.getMessage());
 			e.printStackTrace();
+			return null;
 		}
 	}
 
 	public void saveData() {
 		try {
-			File EntityDataFile = new File(this.storagePath + "/users.json");
-			objectMapper.writeValue(EntityDataFile, entitiesList);
+			File entitiesDataFile = new File(this.storagePath + "/users.json");
+			objectMapper.writerWithDefaultPrettyPrinter().writeValue(entitiesDataFile, usersList);
 		} catch (Exception e) {
 			System.out.println("Error while saving data E: " + e.getMessage());
 			e.printStackTrace();
