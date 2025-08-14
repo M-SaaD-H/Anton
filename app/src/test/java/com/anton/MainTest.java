@@ -5,7 +5,7 @@ package com.anton;
 
 import org.junit.Test;
 
-public class AntonTest {
+public class MainTest {
   @Test
   public void appHasAGreeting() {
     System.out.println("No test for now");
