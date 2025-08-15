@@ -40,11 +40,6 @@ public class RecordManager implements AutoCloseable {
     return readFromPage(page, id.getSlotIndex());
   }
 
-  public Record getRecord(RecordId id) throws IOException {
-    byte[] data = readRecord(id);
-    return new Record(data);
-  }
-
   // try inserting data into the page if 
   public RecordId tryInsertingIntoPage(Page page, int pageNumber, byte[] data) {
     ByteBuffer buffer = ByteBuffer.wrap(page.getData()); // buffer -> so we can read/write data without manually shifting the bytes

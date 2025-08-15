@@ -40,8 +40,8 @@ public class RecordManagerTest {
 
     assertNotNull(rid);
 
-    Record retrieved = recordManager.getRecord(rid);
-    assertTrue(Arrays.equals(data, retrieved.getData()));
+    byte[] retrieved = recordManager.readRecord(rid);
+    assertTrue(Arrays.equals(data, retrieved));
   }
 
   // @Test
