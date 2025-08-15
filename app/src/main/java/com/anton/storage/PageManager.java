@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 // maintains mapping of page numbers -> page objects
-public class PageManager {
+public class PageManager implements AutoCloseable {
   private final FileManager fileManager;
   private final Map<Integer, Page> pageCache = new HashMap<>();
 
@@ -26,6 +26,13 @@ public class PageManager {
     return page;
   }
 
+  public void writePage(int pageNumber, Page page) throws IOException {
+    page.writeToFile(fileManager, pageNumber);
+    if (pageCache.containsKey(pageNumber)) {
+      pageCache.put(pageNumber, page);
+    }
+  }
+
   public Page allocateNewPage() {
     Page page = new Page();
     int newPageNumber = pageCache.size(); // will improve this further
@@ -33,10 +40,21 @@ public class PageManager {
     return page;
   }
 
+  public int getNumOfPages() {
+    return this.pageCache.size();
+  }
+
   public void flushPage(int pageNumber) throws IOException {
     Page page = pageCache.get(pageNumber);
     if (page != null) {
       page.writeToFile(fileManager, pageNumber);
+    }
+  }
+
+  @Override
+  public void close() throws IOException {
+    if (fileManager != null) {
+      fileManager.close();
     }
   }
 }
