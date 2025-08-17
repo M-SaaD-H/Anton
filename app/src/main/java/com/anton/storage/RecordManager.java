@@ -2,7 +2,6 @@ package com.anton.storage;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 public class RecordManager implements AutoCloseable {
   private final PageManager pageManager;
@@ -41,52 +40,47 @@ public class RecordManager implements AutoCloseable {
     return readFromPage(page, id.getSlotIndex());
   }
 
-  public void deleteRecord(RecordId id) throws IOException {
-    Page page = pageManager.getPage(id.getPageNumber());
-    int slotIndex = id.getSlotIndex();
-    byte[] data = page.getData();
-    ByteBuffer buffer = ByteBuffer.wrap(data);
-    int recordCount = buffer.getInt(0);
-
-    if (slotIndex < 0 || slotIndex >= recordCount) {
+  public byte[] readFromPage(Page page, int slotIndex) {
+    int slotSize = page.getSlotsSize();
+    if (slotIndex < 0 || slotIndex >= slotSize) {
       throw new IllegalArgumentException("Invalid slot index");
     }
 
-    // Find the offset of the record to delete
-    int offset = 4;
-    for (int i = 0; i < slotIndex; i++) {
-      int recordLength = buffer.getInt(offset);
-      offset += 4 + recordLength;
+    if (slotSize <= 0) {
+      throw new IllegalStateException("No slots found in this page");
     }
 
-    int recordLengthToDelete = buffer.getInt(offset);
-    int recordTotalLength = 4 + recordLengthToDelete;
-    int nextRecordOffset = offset + recordTotalLength;
+    Slot slot = page.getSlot(slotIndex);
 
-    // Calculate the number of bytes to move
-    int usedBytes = nextRecordOffset;
-    for (int i = slotIndex + 1; i < recordCount; i++) {
-      int recordLength = buffer.getInt(usedBytes);
-      usedBytes += 4 + recordLength;
+    int offset = slot.getOffset();
+    int length = slot.getLength();
+
+    if (offset < 0 || length <= 0) {
+      throw new IllegalStateException("Slot is empty or deleted");
     }
 
-    int bytesToMove = usedBytes - nextRecordOffset;
+    ByteBuffer buffer = ByteBuffer.wrap(page.getData());
 
-    // Shift the remaining records left to fill the gap
-    if (bytesToMove > 0) {
-      System.arraycopy(data, nextRecordOffset, data, offset, bytesToMove);
+    byte[] data = new byte[length];
+    buffer.position(offset);
+    buffer.get(data); // reads the the next data.length bytes and stores it into the data
+    return data;
+  }
+
+  public void deleteRecord(RecordId id) throws IOException {
+    Page page = pageManager.getPage(id.getPageNumber());
+    int slotIndex = id.getSlotIndex();
+
+    if (slotIndex < 0) {
+      throw new IllegalArgumentException("Invalid slot index");
     }
 
-    // Zero out the leftover bytes at the end
-    Arrays.fill(data, usedBytes - recordTotalLength, usedBytes, (byte) 0);
+    Slot slot = page.getSlot(slotIndex);
+    slot.setLength(0); // mark deleted, not changing the offset -> will be used to clear the memory
 
-    // Update the record count
-    buffer.putInt(0, recordCount - 1);
-
-    // No need to update slot indices in RecordId objects, as they are not stored in the page
-    // The caller should discard the deleted RecordId
-
-    // Write the updated page back to storage
+    // actually delete the record asynchronously
+    page.compact();
+    // write the updated page
     pageManager.writePage(id.getPageNumber(), page);
   }
 
@@ -94,56 +88,21 @@ public class RecordManager implements AutoCloseable {
   public RecordId tryInsertingIntoPage(Page page, int pageNumber, byte[] data) {
     byte[] pageData = page.getData();
     ByteBuffer buffer = ByteBuffer.wrap(pageData); // buffer -> so we can read/write data without manually shifting the bytes
-    int recordCount = buffer.getInt(0); // reads the int (4bytes) and get the no. of records stored in the page starting from the 0th (first) position
-
-    // initial offset for the record count
-    int offset = 4; // after the loop this will be the pointer after the last record
-    for (int i = 1; i < recordCount; i++) {
-      int recordLength = buffer.getInt(offset); // read the length of the record
-
-      // 4 -> integer = length of the record, recordLength -> actual length of the record
-      offset += 4 + recordLength; // moves the pointer till the end of the data of the page
-    }
+    int fps = page.getFreeSpacePointer();
 
     // space check
-    int requiredSpace = 4 + data.length;
-    if (offset + requiredSpace > pageData.length) {
+    if (fps + data.length > pageData.length) {
       return null; // not enough space
     }
 
     // Write a new Record
-    buffer.position(offset); // sets the buffer's pointer at the end of the data in the page
-    buffer.putInt(data.length); // stores the length of the data
+    buffer.position(fps); // sets the buffer's pointer at the end of the data in the page
     buffer.put(data); // stores the data in the page
 
-    // update the record count at the begining of the page
-    buffer.putInt(0, recordCount + 1);
+    Slot slot = new Slot(fps, data.length);
+    page.addSlot(slot);
 
-    return new RecordId(pageNumber, recordCount);
-  }
-
-  public byte[] readFromPage(Page page, int slotIndex) {
-    ByteBuffer buffer = ByteBuffer.wrap(page.getData());
-    int recordCount = buffer.getInt(0);
-
-    if (slotIndex < 0 || slotIndex >= recordCount) {
-      throw new IllegalArgumentException("Invalid slot index");
-    }
-
-    int offset = 4;
-    for (int i = 0; i < slotIndex; i++){
-      int recordLength = buffer.getInt(offset);
-      offset += 4 + recordLength;
-    }
-
-    // length of the record that we have to read
-    int requiredRecordsLength = buffer.getInt(offset);
-    offset += 4; // take the offset past the length (integer)
-
-    byte[] data = new byte[requiredRecordsLength];
-    buffer.position(offset);
-    buffer.get(data); // reads the the next data.length bytes and stores it into the data
-    return data;
+    return new RecordId(pageNumber, page.getSlotsSize() - 1);
   }
 
   @Override

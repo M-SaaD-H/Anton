@@ -7,8 +7,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @AllArgsConstructor
-// details to find the Record
-public class RecordId {
-  private int pageNumber;
-  private int slotIndex; // index of the record in the page
+public class Slot {
+  private int offset;
+  private int length;
 }
