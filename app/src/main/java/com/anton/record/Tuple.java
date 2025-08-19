@@ -24,20 +24,17 @@ public class Tuple {
       for (Column col : schema) {
         Object val = values.get(col.getName());
         switch (col.getType()) {
-          case "INT":
-            dos.writeInt((Integer) val);
-            break;
+          case INT -> dos.writeInt((Integer) val);
 
-          case "STRING":
+          case STRING -> {
             byte[] strBytes = ((String) val).getBytes(StandardCharsets.UTF_8);
             dos.writeInt(strBytes.length); // stores length first
             dos.write(strBytes); // store the data
-            break;
+          }
 
           // Add more data types (if needed)
 
-          default:
-            throw new IllegalArgumentException("Unknown column type: " + col.getType());
+          default -> throw new IllegalArgumentException("Unknown column type: " + col.getType());
         }
       }
     } catch (IOException e) {
@@ -55,20 +52,19 @@ public class Tuple {
       for (Column col : schema) {
         // Object val = vals.get(col.getName());
         switch (col.getType()) {
-          case "INT":
+          case INT -> {
             int val = dis.readInt();
             vals.put(col.getName(), val);
-            break;
+          }
 
-          case "STRING":
+          case STRING -> {
             int length = dis.readInt();
             byte[] strBytes = new byte[length];
             dis.readFully(strBytes);
             vals.put(col.getName(), new String(strBytes, StandardCharsets.UTF_8));
-            break;
+          }
         
-          default:
-            throw new IllegalArgumentException("Unknown column type: " + col.getType());
+          default -> throw new IllegalArgumentException("Unknown column type: " + col.getType());
         }
       }
     } catch (IOException e) {

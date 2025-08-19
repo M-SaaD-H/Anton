@@ -14,8 +14,8 @@ public class TupleTest {
   @Test
   void testInsertTuple() throws Exception {
     List<Column> cols = List.of(
-        new Column("id", "INT"),
-        new Column("name", "STRING"));
+        new Column("id", DataType.INT),
+        new Column("name", DataType.STRING));
 
     Table table = new Table("students", cols, "students.tbl");
 

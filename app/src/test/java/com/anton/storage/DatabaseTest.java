@@ -10,6 +10,7 @@ import java.util.ArrayList;
 
 import com.anton.record.CatalogManager;
 import com.anton.record.Column;
+import com.anton.record.DataType;
 import com.anton.record.Table;
 
 public class DatabaseTest {
@@ -17,8 +18,8 @@ public class DatabaseTest {
     // Step 1: Setup Catalog
     CatalogManager catalog = new CatalogManager();
     List<Column> columns = new ArrayList<>();
-    columns.add(new Column("id", "INT"));
-    columns.add(new Column("name", "STRING"));
+    columns.add(new Column("id", DataType.INT));
+    columns.add(new Column("name", DataType.STRING));
     Table table = catalog.createTable("students", columns);
 
     // Step 2: Setup RecordManager (with PageManager backing)

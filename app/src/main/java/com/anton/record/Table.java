@@ -29,8 +29,7 @@ public class Table {
       PageManager pageManager = new PageManager(fileManager);
       this.recordManager = new RecordManager(pageManager);
     } catch (Exception e) {
-      System.out.println("Failed to initialize table");
-      e.printStackTrace();
+      throw new RuntimeException("Failed to initialize table. E:" + e);
     }
   }
 
@@ -62,5 +61,9 @@ public class Table {
       e.printStackTrace();
       return false;
     }
+  }
+
+  public void close() throws IOException {
+    this.recordManager.close();
   }
 }
