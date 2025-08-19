@@ -17,6 +17,10 @@ public class Tuple {
     this.values = values;
   }
 
+  public Object getValue(String col) {
+    return this.values.get(col);
+  }
+
   // validate the data according to the schema return its byte form
   public byte[] toBytes(List<Column> schema) {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();

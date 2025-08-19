@@ -106,7 +106,7 @@ public class CatalogManager {
     // Rebuild runtime tables from entries
     this.tables.clear();
     for (TableEntry e : entries) {
-      Table table = new Table(e.getFileName(), e.getColumns(), e.getFileName());
+      Table table = new Table(e.getTableName(), e.getColumns(), e.getFileName());
       this.tables.put(table.getTableName(), table);
     }
   }
