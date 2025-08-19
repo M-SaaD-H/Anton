@@ -33,6 +33,11 @@ public class Page {
 
   public void addSlot(Slot slot) {
     this.slots.add(slot);
+    // Update freeSpacePointer to the end of the new slot if needed
+    int end = slot.getOffset() + slot.getLength();
+    if (end > this.freeSpacePointer) {
+      this.freeSpacePointer = end;
+    }
   }
 
   public void setData(byte[] data) {
@@ -48,10 +53,6 @@ public class Page {
 
   public int getFreeSpacePointer() {
     return this.freeSpacePointer;
-  }
-
-  public void setFreeSpacePointer(int fps) {
-    this.freeSpacePointer = fps;
   }
 
   public void readFromFile(FileManager fileManager, int pageNumber) throws IOException {
@@ -148,6 +149,9 @@ public class Page {
     while (buffer.position() < this.PAGE_SIZE) {
       buffer.put((byte) 0);
     }
+
+    // update the freeSpacePointer after compaction
+    this.freeSpacePointer = writePos;
 
     // update the slot directory
     for (Slot s : this.slots) {
