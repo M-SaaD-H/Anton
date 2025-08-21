@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 
 // Responsible for storing meta data for our database
-// keeping it in memory as of now, have to serialize it later.
 public class CatalogManager {
   private final File catalogFile;
   private Map<String, Table> tables = new HashMap<>();
@@ -42,11 +41,28 @@ public class CatalogManager {
     // create the table file
     new File(fileName).createNewFile();
 
-    Table schema = new Table(tableName, columns, fileName);
+    Table schema = new Table(tableName.toLowerCase(), columns, fileName);
     tables.put(tableName, schema);
     saveCatalog();
 
     return schema;
+  }
+
+  public synchronized void insertTuple(String tableName, Tuple tuple) throws IOException {
+    Table table = this.tables.get(tableName);
+    if (table == null) {
+      throw new IllegalArgumentException("Table does not exist: " + tableName);
+    }
+    table.insert(tuple);
+    saveCatalog();
+  }
+
+  public synchronized List<Tuple> selectTuples(String tableName) throws IOException {
+    Table table = this.tables.get(tableName);
+    if (table == null) {
+      throw new IllegalArgumentException("Table does not exist: " + tableName);
+    }
+    return table.selectAll();
   }
 
   public synchronized Table getTableSchema(String tableName) {

@@ -105,6 +105,10 @@ public class RecordManager implements AutoCloseable {
     return new RecordId(pageNumber, page.getSlotsSize() - 1);
   }
 
+  public PageManager getPageManager() {
+    return this.pageManager;
+  }
+
   @Override
   public void close() throws IOException {
     if (pageManager != null) {

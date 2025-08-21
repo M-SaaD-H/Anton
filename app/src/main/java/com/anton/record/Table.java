@@ -4,9 +4,11 @@ import java.io.IOException;
 import java.util.List;
 
 import com.anton.storage.FileManager;
+import com.anton.storage.Page;
 import com.anton.storage.PageManager;
 import com.anton.storage.RecordId;
 import com.anton.storage.RecordManager;
+import com.anton.storage.Slot;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -61,6 +63,25 @@ public class Table {
       e.printStackTrace();
       return false;
     }
+  }
+
+  public List<Tuple> selectAll() throws IOException {
+    List<Tuple> tuples = new java.util.ArrayList<>();
+    PageManager pageManager = this.recordManager.getPageManager();
+    int numOfPages = pageManager.getNumOfPages();
+    for (int i = 0; i < numOfPages; i++) {
+      Page page = pageManager.getPage(i);
+      int slots = page.getSlotsSize();
+      for (int j = 0; j < slots; j++) {
+        Slot slot = page.getSlot(j);
+        if (slot.getLength() > 0) { // valid record
+          RecordId rid = new RecordId(i, j);
+          Tuple tuple = this.read(rid);
+          tuples.add(tuple);
+        }
+      }
+    }
+    return tuples;
   }
 
   public void close() throws IOException {
