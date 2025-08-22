@@ -9,7 +9,7 @@ public class QueryParser {
   // Parser
   public Query parse(String query) {
     query = query.trim();
-    
+
     if (query.startsWith("CREATE TABLE")) {
       return parseCreateTable(query);
     } else if (query.startsWith("INSERT INTO")) {
@@ -55,8 +55,8 @@ public class QueryParser {
 
     // build value map
     for (String val : valuesPart) {
-      String[] splitVal = val.split(" ");
-      String fieldName = splitVal[0].trim().replace("''", ""); // strip quotes
+      String[] splitVal = val.trim().split(" ");
+      String fieldName = splitVal[0].trim().replace("'", ""); // strip quotes
       String fieldValue = splitVal[1].trim().replace("'", "");
 
       values.put(fieldName, fieldValue);
@@ -81,20 +81,25 @@ public class QueryParser {
       }
     }
 
-    String tableName = query.substring(fromIdx + "FROM".length()).substring(0, query.indexOf(" ")).trim();
+    String tableName = query.substring(fromIdx + "FROM".length()).trim();
+    if (query.contains("WHERE")) {
+      tableName = tableName.substring(0, query.indexOf("WHERE")).trim();
+    }
 
     // values for the conditional selection
-    String conditionString = query.substring(query.indexOf("WHERE") + "WHERE".length()).trim();
-    String[] conditionParts = conditionString.split("&");
-    Map<String, Object> conditions = new HashMap<>();
+    Map<String, Object> conditions = null;
+    if (query.contains("WHERE")) {
+      String conditionString = query.substring(query.indexOf("WHERE") + "WHERE".length()).trim();
+      String[] conditionParts = conditionString.split("&");
+      conditions = new HashMap<>();
+      // build condition map
+      for (String con : conditionParts) {
+        String[] splitVal = con.trim().split("=");
+        String fieldName = splitVal[0].trim(); // strip quotes
+        String fieldValue = splitVal[1].trim();
 
-    // build condition map
-    for (String con : conditionParts) {
-      String[] splitVal = con.trim().split("=");
-      String fieldName = splitVal[0].trim(); // strip quotes
-      String fieldValue = splitVal[1].trim();
-
-      conditions.put(fieldName, fieldValue);
+        conditions.put(fieldName, fieldValue);
+      }
     }
 
     return new Query(QueryType.SELECT, tableName, fieldsToSelect, conditions);

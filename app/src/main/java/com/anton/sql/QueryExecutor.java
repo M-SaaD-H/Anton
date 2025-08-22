@@ -25,6 +25,11 @@ public class QueryExecutor {
     this.db = db;
   }
 
+  public QueryExecutor(CatalogManager db) {
+    this.parser = new QueryParser();
+    this.db = db;
+  }
+
   public List<Tuple> execute(String query) {
     Query q = parser.parse(query);
 
@@ -59,7 +64,7 @@ public class QueryExecutor {
     try {
       db.createTable(q.getTableName(), schema);
     } catch (Exception e) {
-      System.out.println("Failed to create table: " + q.getTableName());
+      System.out.println("Failed to create table: " + q.getTableName() + ". E: " + e.getMessage());
       e.printStackTrace();
     }
   }
@@ -69,7 +74,7 @@ public class QueryExecutor {
     try {
       db.insertTuple(q.getTableName(), tuple); // create this tuple
     } catch (Exception e) {
-      System.out.println("Failed to insert data in " + q.getTableName());
+      System.out.println("Failed to insert data in " + q.getTableName() + ". E: " + e.getMessage());
       e.printStackTrace();
     }
   }

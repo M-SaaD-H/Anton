@@ -19,9 +19,15 @@ public class PageManager implements AutoCloseable {
       return pageCache.get(pageNumber);
     }
 
-    // else create a new page
+    // Check if the page exists in the file
+    long offset = (long) pageNumber * 4096; // PAGE_SIZE
+    long fileLength = fileManager.getFileLength();
     Page page = new Page();
-    page.readFromFile(fileManager, pageNumber);
+    if (offset < fileLength) {
+      page.readFromFile(fileManager, pageNumber);
+    }
+    // else: leave as empty page
+
     pageCache.put(pageNumber, page);
     return page;
   }

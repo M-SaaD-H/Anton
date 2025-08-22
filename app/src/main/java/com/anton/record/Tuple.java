@@ -14,6 +14,10 @@ public class Tuple {
   private final Map<String, Object> values;
 
   public Tuple(Map<String, Object> values) {
+    if (values == null) {
+      throw new RuntimeException("Can not create a tuple with 'null' values");
+    }
+
     this.values = values;
   }
 
@@ -26,9 +30,9 @@ public class Tuple {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     try (DataOutputStream dos = new DataOutputStream(baos)) {
       for (Column col : schema) {
-        Object val = values.get(col.getName());
+        var val = this.values.get(col.getName());
         switch (col.getType()) {
-          case INT -> dos.writeInt((Integer) val);
+          case INT -> dos.writeInt(Integer.parseInt(val.toString()));
 
           case STRING -> {
             byte[] strBytes = ((String) val).getBytes(StandardCharsets.UTF_8);

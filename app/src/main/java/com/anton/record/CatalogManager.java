@@ -91,7 +91,7 @@ public class CatalogManager {
   private void saveCatalog() throws IOException {
     List<TableEntry> entries = new ArrayList<>();
     for (Table t : this.tables.values()) {
-      entries.add(new TableEntry(t.getTableName(), t.getFileName(), t.getColumns()));
+      entries.add(new TableEntry(t.getTableName(), t.getFileName(), t.getColumns(), t.getTupleIds()));
     }
 
     try (
@@ -122,7 +122,7 @@ public class CatalogManager {
     // Rebuild runtime tables from entries
     this.tables.clear();
     for (TableEntry e : entries) {
-      Table table = new Table(e.getTableName(), e.getColumns(), e.getFileName());
+      Table table = new Table(e.getTableName(), e.getColumns(), e.getFileName(), e.getTupleIds());
       this.tables.put(table.getTableName(), table);
     }
   }

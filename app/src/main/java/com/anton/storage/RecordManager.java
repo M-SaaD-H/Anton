@@ -26,7 +26,7 @@ public class RecordManager implements AutoCloseable {
     }
 
     // if required space is not found in any of the pages
-    Page newPage = new Page();
+    Page newPage = pageManager.getPage(numOfPages); // this function will return a new page and will add it to the 'pageCache'. TODO: improve this
     RecordId id = tryInsertingIntoPage(newPage, numOfPages, data);
     if (id == null) {
       throw new IllegalStateException("Record too large for a page");
@@ -103,10 +103,6 @@ public class RecordManager implements AutoCloseable {
     page.addSlot(slot);
 
     return new RecordId(pageNumber, page.getSlotsSize() - 1);
-  }
-
-  public PageManager getPageManager() {
-    return this.pageManager;
   }
 
   @Override

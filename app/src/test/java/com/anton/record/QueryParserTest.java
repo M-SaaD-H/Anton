@@ -13,9 +13,8 @@ public class QueryParserTest {
 
   @BeforeAll
   static void setup() throws IOException {
-    // fresh catalog each time
-    executor = new QueryExecutor();
-    db = new CatalogManager();
+    db = new CatalogManager("test_catalog.db");
+    executor = new QueryExecutor(db);
   }
 
   @BeforeEach
@@ -40,8 +39,8 @@ public class QueryParserTest {
     executor.execute("CREATE TABLE users (id INT, name STRING)");
 
     // insert rows
-    executor.execute("INSERT INTO users VALUES (1, 'Saad')");
-    executor.execute("INSERT INTO users VALUES (2, 'Anton')");
+    executor.execute("INSERT INTO users VALUES ('id' 1, 'name' 'Saad')");
+    executor.execute("INSERT INTO users VALUES ('id' 2, 'name' 'Anton')");
 
     // select all
     var result = executor.execute("SELECT * FROM users");
@@ -57,7 +56,7 @@ public class QueryParserTest {
     // row 2
     Tuple row2 = result.get(1);
     assertEquals(2, row2.getValue("id"));
-    assertEquals("Ali", row2.getValue("name"));
+    assertEquals("Anton", row2.getValue("name"));
   }
 
   @AfterAll

@@ -1,5 +1,7 @@
 package com.anton.storage;
 
+import java.io.Serializable;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
@@ -8,7 +10,7 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 // details to find the Record
-public class RecordId {
+public class RecordId implements Serializable {
   private int pageNumber;
   private int slotIndex; // index of the record in the page
 }
