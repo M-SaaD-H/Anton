@@ -23,17 +23,12 @@ The goal of AntonDB is to explore the inner workings of databases, from parsing 
 8. Joins: (Ambitious, but planned) support basic inner joins between tables.
 
 ## 📖 Example Usage
-1. Create a table.
-<br />
-CREATE TABLE users (id INT, name STRING);
-<br />
-2. Insert data
-<br />
-INSERT INTO users VALUES (1, 'Alice')
-<br />
-3. Select data
-<br />
-SELECT name FROM users;
+1. Create a table. <br>
+   CREATE TABLE users (id INT, name STRING)
+3. Insert data. <br>
+   INSERT INTO users VALUES (1, 'Alice')
+4. Select data. <br>
+   SELECT * FROM users
 
 ## ⚙️ Tech Stack
 
