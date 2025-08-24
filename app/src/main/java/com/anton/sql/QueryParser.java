@@ -34,7 +34,7 @@ public class QueryParser {
     // build value map
     for (String val : valuesPart) {
       String[] splitVal = val.trim().split(" ");
-      String fieldName = splitVal[0].replace("''", "").trim(); // strip quotes
+      String fieldName = splitVal[0].replace("'", "").trim(); // strip quotes
       String fieldValue = splitVal[1].replace("'", "").trim();
 
       values.put(fieldName, fieldValue);
@@ -56,8 +56,8 @@ public class QueryParser {
     // build value map
     for (String val : valuesPart) {
       String[] splitVal = val.trim().split(" ");
-      String fieldName = splitVal[0].trim().replace("'", ""); // strip quotes
-      String fieldValue = splitVal[1].trim().replace("'", "");
+      String fieldName = splitVal[0].replace("'", "").trim(); // strip quotes
+      String fieldValue = splitVal[1].replace("'", "").trim();
 
       values.put(fieldName, fieldValue);
     }
