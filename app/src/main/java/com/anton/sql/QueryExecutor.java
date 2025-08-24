@@ -72,7 +72,7 @@ public class QueryExecutor {
   public void executeInsert(Query q) {
     Tuple tuple = new Tuple(q.getValues());
     try {
-      db.insertTuple(q.getTableName(), tuple); // create this tuple
+      db.insertTuple(q.getTableName(), tuple);
     } catch (Exception e) {
       System.out.println("Failed to insert data in " + q.getTableName() + ". E: " + e.getMessage());
       e.printStackTrace();
@@ -80,9 +80,8 @@ public class QueryExecutor {
   }
 
   public List<Tuple> executeSelect(Query q) {
-    // TODO: Add filtering
     try {
-      return db.selectTuples(q.getTableName());
+      return db.selectTuples(q.getTableName(), q.getCondition(), q.getFields());
     } catch (Exception e) {
       System.out.println("Failed to select tuples of table: " + q.getTableName() + ". E: " + e.getMessage());
       e.printStackTrace();

@@ -13,7 +13,7 @@ public class QueryParserTest {
 
   @BeforeAll
   static void setup() throws IOException {
-    db = new CatalogManager("test_catalog.db");
+    db = new CatalogManager("storage/test_catalog.db");
     executor = new QueryExecutor(db);
   }
 

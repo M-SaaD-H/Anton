@@ -24,12 +24,17 @@ public class CatalogManager {
 
   public CatalogManager(String catalogFilePath) throws IOException {
     this.catalogFile = new File(catalogFilePath);
+    // Ensure parent directory exists
+    File parent = this.catalogFile.getParentFile();
+    if (parent != null && !parent.exists()) {
+      parent.mkdirs();
+    }
     if (this.catalogFile.exists()) {
       loadCatalog();
     } else {
       saveCatalog(); // create empty catalog file
     }
-  }
+}
 
   // synchronized -> only one thread can execute this function at a time, to avoid inconsistensies
   public synchronized Table createTable(String tableName, List<Column> columns) throws IOException {
@@ -57,12 +62,17 @@ public class CatalogManager {
     saveCatalog();
   }
 
-  public synchronized List<Tuple> selectTuples(String tableName) throws IOException {
+  public synchronized List<Tuple> selectTuples(String tableName, Map<String, Object> condition, List<String> fields) throws IOException {
     Table table = this.tables.get(tableName);
     if (table == null) {
       throw new IllegalArgumentException("Table does not exist: " + tableName);
     }
-    return table.selectAll();
+    
+    if (condition == null) {
+      return table.selectAll(fields);
+    }
+
+    return table.select(condition, fields);
   }
 
   public synchronized Table getTableSchema(String tableName) {

@@ -2,7 +2,9 @@ package com.anton.record;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.anton.storage.FileManager;
 import com.anton.storage.PageManager;
@@ -85,7 +87,7 @@ public class Table {
     }
   }
 
-  public List<Tuple> selectAll() throws IOException {
+  public List<Tuple> selectAll(List<String> fields) throws IOException {
     if (this.tupleIds == null) {
       throw new RuntimeException("No tuples found in table: " + this.tableName);
     }
@@ -94,7 +96,48 @@ public class Table {
     for (RecordId id : this.tupleIds) {
       tuples.add(read(id));
     }
-    return tuples;
+
+    return projectRequiredFields(tuples, fields);
+  }
+
+  public List<Tuple> select(Map<String, Object> conditions, List<String> fields) throws IOException {
+    List<Tuple> allTuples = this.selectAll(null);
+    List<Tuple> tuples = new ArrayList<>();
+
+    for (Tuple t : allTuples) {
+      boolean match = true;
+      for (String field : conditions.keySet()) {
+        Object tupleValue = t.getValue(field);
+        Object conditionValue = conditions.get(field);
+        if (tupleValue == null || !tupleValue.toString().equals(conditionValue.toString())) {
+          match = false;
+          break;
+        }
+      }
+
+      // if all values match, then add it to the result list
+      if (match) {
+        tuples.add(t);
+      }
+    }
+
+    return projectRequiredFields(tuples, fields);
+  }
+
+  private List<Tuple> projectRequiredFields(List<Tuple> tuples, List<String> fields) {
+    if (fields == null) return tuples;
+
+    // project only the required fields
+    List<Tuple> projected = new ArrayList<>();
+    for (Tuple t : tuples) {
+      Map<String, Object> filteredValues = new HashMap<>();
+      for (String f : fields) {
+        filteredValues.put(f, t.getValue(f));
+      }
+      projected.add(new Tuple(filteredValues));
+    }
+
+    return projected;
   }
 
   public void close() throws IOException {

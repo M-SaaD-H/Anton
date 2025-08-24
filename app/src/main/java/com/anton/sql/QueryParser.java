@@ -82,17 +82,16 @@ public class QueryParser {
     }
 
     String tableName = query.substring(fromIdx + "FROM".length()).trim();
-    if (query.contains("WHERE")) {
-      tableName = tableName.substring(0, query.indexOf("WHERE")).trim();
-    }
 
     // values for the conditional selection
     Map<String, Object> conditions = null;
     if (query.contains("WHERE")) {
+      tableName = tableName.substring(0, tableName.indexOf("WHERE")).trim();
       String conditionString = query.substring(query.indexOf("WHERE") + "WHERE".length()).trim();
       String[] conditionParts = conditionString.split("&");
-      conditions = new HashMap<>();
+
       // build condition map
+      conditions = new HashMap<>();
       for (String con : conditionParts) {
         String[] splitVal = con.trim().split("=");
         String fieldName = splitVal[0].trim(); // strip quotes
