@@ -28,10 +28,16 @@ public class Main {
     List<Tuple> result = executor.execute(query);
 
     if (result != null) {
-      System.out.println("Result-");
+      if (result.size() <= 0) {
+        System.out.println("No entries found.");
+        return;
+      }
+      System.out.println("Result:\n");
       for (Tuple tuple : result) {
-        System.out.printf("id: %S%n", tuple.getValue("id"));
-        System.out.printf("name: %s%n", tuple.getValue("name"));
+        for (String val : tuple.getValues().keySet()) {
+          System.out.printf("%s: %s%n", val, tuple.getValue(val));
+        }
+        System.out.println();
       }
     }
   }

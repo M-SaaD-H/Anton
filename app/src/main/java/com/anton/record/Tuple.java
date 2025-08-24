@@ -21,6 +21,10 @@ public class Tuple {
     this.values = values;
   }
 
+  public Map<String, Object> getValues() {
+    return this.values;
+  }
+
   public Object getValue(String col) {
     return this.values.get(col);
   }
@@ -31,6 +35,10 @@ public class Tuple {
     try (DataOutputStream dos = new DataOutputStream(baos)) {
       for (Column col : schema) {
         var val = this.values.get(col.getName());
+        if (val == null) {
+          throw new RuntimeException("'" + col.getName() + "' field is required.");
+        }
+        
         switch (col.getType()) {
           case INT -> dos.writeInt(Integer.parseInt(val.toString()));
 

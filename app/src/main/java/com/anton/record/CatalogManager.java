@@ -19,7 +19,7 @@ public class CatalogManager {
 
   // default file path
   public CatalogManager() throws IOException {
-    this("catalog.db");
+    this("storage/catalog.db");
   }
 
   public CatalogManager(String catalogFilePath) throws IOException {
@@ -37,7 +37,7 @@ public class CatalogManager {
       throw new RuntimeException("Table already exists: " + tableName);
     }
 
-    String fileName = tableName.toLowerCase() + ".tbl";
+    String fileName = "storage/" + tableName.toLowerCase() + ".tbl";
     // create the table file
     new File(fileName).createNewFile();
 
