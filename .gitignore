@@ -5,3 +5,6 @@
 build
 
 app/bin
+
+# Testing files
+app/storage

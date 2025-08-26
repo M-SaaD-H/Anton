@@ -31,7 +31,17 @@ public class QueryExecutor {
   }
 
   public List<Tuple> execute(String query) {
-    Query q = parser.parse(query);
+    Query q = null;
+    try {
+      q = parser.parse(query);
+    } catch (Exception e) {
+      System.out.println("Error while parsing the query. E: " + e.getMessage());
+      return null; // handle parse errors
+    }
+
+    if (q == null) {
+      return null;
+    }
 
     return switch (q.getType()) {
       case CREATE_TABLE -> {
