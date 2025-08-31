@@ -84,15 +84,54 @@ public class CatalogManager {
   }
 
   public synchronized void dropTable(String tableName) throws IOException {
-    Table table = tables.remove(tableName);
-    // Delete the table file associated with the dropped table
-    if (table != null) {
-      File file = new File(table.getFileName());
-      if (file.exists()) {
-        file.delete();
-      }
-      saveCatalog();
+    Table table = this.tables.remove(tableName);
+    if (table == null) {
+      throw new RuntimeException("Table does not exist");
     }
+
+    // All table resources are closed after used
+    try {
+      table.close();
+    } catch (Exception e) {
+      System.err.println("Error occured while closing the table. E: " + e.getMessage());
+      e.printStackTrace();
+    }
+
+    // Delete the table file associated with the dropped table
+    File file = new File(table.getFileName());
+    if (file.exists()) {
+      boolean deleted = false;
+      int retryCount = 0;
+      final int maxRetries = 3;
+      
+      while (!deleted && retryCount < maxRetries) {
+        deleted = file.delete();
+        if (!deleted) {
+          retryCount++;
+          if (retryCount < maxRetries) {
+            try {
+              // Wait a bit for the file handle to be fully released
+              Thread.sleep(100);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              break;
+            }
+          }
+        }
+      }
+      
+      if (!deleted) {
+        // If immediate deletion fails, schedule for deletion on JVM exit
+        file.deleteOnExit();
+        System.out.println("Warning: Could not immediately delete file after " + maxRetries + " attempts, scheduled for deletion on exit: " + file.getAbsolutePath());
+      } else {
+        System.out.println("Successfully deleted file: " + file.getAbsolutePath());
+      }
+    } else {
+      System.out.println("File does not exist: " + file.getAbsolutePath());
+    }
+
+    saveCatalog();
   }
 
   // ========== Persistance ========== \\

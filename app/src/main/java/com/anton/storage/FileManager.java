@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
-public class FileManager {
+public class FileManager implements AutoCloseable {
   private RandomAccessFile raf;
 
   public FileManager(String filePath) throws IOException {
@@ -31,7 +31,12 @@ public class FileManager {
   }
 
   // close the file -> no read and write will be functional after this
+  @Override
   public void close() throws IOException {
-    if (raf != null) raf.close();
+    if (raf != null) {
+      // Flush any buffered data before closing
+      raf.getFD().sync();
+      this.raf.close();
+    }
   }
 }

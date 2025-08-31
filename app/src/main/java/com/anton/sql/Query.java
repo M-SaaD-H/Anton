@@ -17,13 +17,13 @@ public class Query {
   private final List<String> fields; // for SELECT query
   private final Map<String, Object> condition; // condition for SELECT query
 
-  // for INSERT, UPDATE, and CREATE TABLE query
+  // for INSERT, UPDATE, and CREATE TABLE query, and for DELETE query the values will empty
   public Query(QueryType type, String tableName, Map<String, Object> values) {
     if (type == null || tableName == null || values == null) {
       throw new IllegalArgumentException("All fields are required to create a query");
     }
 
-    if (type != QueryType.INSERT && type != QueryType.UPDATE && type != QueryType.CREATE_TABLE) {
+    if (type != QueryType.INSERT && type != QueryType.UPDATE && type != QueryType.CREATE_TABLE && type != QueryType.DELETE) {
       throw new IllegalArgumentException("Invalid params for this query type: " + type);
     }
 

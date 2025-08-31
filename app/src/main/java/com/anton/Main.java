@@ -16,6 +16,7 @@ public class Main {
     while (true) {
       try {
         String query = br.readLine();
+        if (query == null || query.equals("EXIT")) return;
         queryProcessor(query);
       } catch (IOException e) {
         e.printStackTrace();

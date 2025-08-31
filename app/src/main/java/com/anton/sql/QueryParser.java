@@ -16,6 +16,8 @@ public class QueryParser {
       return parseInsert(query);
     } else if (query.startsWith("SELECT")) {
       return parseSelect(query);
+    } else if (query.startsWith("DELETE")) {
+      return parseDelete(query);
     } else {
       throw new IllegalArgumentException("Unsupported query: " + query);
     }
@@ -221,5 +223,72 @@ public class QueryParser {
     }
 
     return new Query(QueryType.SELECT, tableName, fieldsToSelect, conditions);
+  }
+
+  // Parse the DELETE query. There are two types of DELETE query, to delete a tuple(record) or to delete the whole table.
+  private Query parseDelete(String query) throws IllegalArgumentException {
+    if (!query.toUpperCase().startsWith("DELETE")) {
+      throw new IllegalArgumentException("Query must start with DELETE");
+    }
+    query = query.substring("DELETE".length()).trim();
+
+    String identifier = query.substring(0, query.indexOf(" ")).toUpperCase().trim();
+    if (identifier.equals("FROM")) {
+      return parseDeleteTuple(query);
+    } else if (identifier.equals("TABLE")) {
+      return parseDeleteTable(query);
+    } else {
+      throw new IllegalArgumentException("Invalid query format.");
+    }
+  }
+
+  // DELETE TABLE <TABLE_NAME>
+  // e.g. DELETE TABLE users
+  private Query parseDeleteTable(String query) throws IllegalArgumentException {
+    String tableName = query.substring("TABLE".length()).trim();
+    if (tableName.isEmpty()) {
+      throw new IllegalArgumentException("Missing table name in DELETE statement.");
+    }
+
+    return new Query(QueryType.DELETE, tableName, new HashMap<>());
+  }
+
+  // DELETE FROM <TABLE_NAME> WHERE <CONDITION>
+  // e.g. DELETE FROM users WHERE id=123
+  private Query parseDeleteTuple(String query) throws IllegalArgumentException {
+    String tableName = query.substring("FROM".length(), query.toUpperCase().indexOf("WHERE")).trim();
+    if (tableName.isEmpty()) {
+      throw new IllegalArgumentException("Missing table name in DELETE statement.");
+    }
+
+    String conditionString = query.substring(query.toUpperCase().indexOf("WHERE") + "WHERE".length()).trim();
+    if (conditionString.isEmpty()) {
+      throw new IllegalArgumentException("WHERE clause is empty in DELETE statement.");
+    }
+    String[] conditionParts = conditionString.split("&");
+
+    // build condition map
+    Map<String, Object> conditions = new HashMap<>();
+    for (String con : conditionParts) {
+      String[] splitVal = con.trim().split("=");
+      if (splitVal.length != 2) {
+        throw new IllegalArgumentException("Invalid condition: '" + con + "'. Expected format: field=value");
+      }
+      String fieldName = splitVal[0].trim();
+      String fieldValue = splitVal[1].trim();
+      if (fieldName.isEmpty() || fieldValue.isEmpty()) {
+        throw new IllegalArgumentException("Condition field or value cannot be empty in: '" + con + "'");
+      }
+      if (conditions.containsKey(fieldName)) {
+        throw new IllegalArgumentException("Duplicate condition field: '" + fieldName + "'");
+      }
+      conditions.put(fieldName, fieldValue);
+    }
+
+    if (conditions.isEmpty()) {
+      throw new IllegalArgumentException("Conditions are empty after the WHERE clause in the SELECT statement.");
+    }
+
+    return new Query(null, tableName, null, conditions);
   }
 }

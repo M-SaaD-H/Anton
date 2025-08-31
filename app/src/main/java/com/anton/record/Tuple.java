@@ -31,8 +31,10 @@ public class Tuple {
 
   // validate the data according to the schema return its byte form
   public byte[] toBytes(List<Column> schema) {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    try (DataOutputStream dos = new DataOutputStream(baos)) {
+    try (
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      DataOutputStream dos = new DataOutputStream(baos);
+    ) {
       for (Column col : schema) {
         var val = this.values.get(col.getName());
         if (val == null) {
@@ -53,18 +55,20 @@ public class Tuple {
           default -> throw new IllegalArgumentException("Unknown column type: " + col.getType());
         }
       }
+      
+      return baos.toByteArray();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-
-    return baos.toByteArray();
   }
 
   public static Tuple fromBytes(byte[] data, List<Column> schema) {
     Map<String, Object> vals = new HashMap<>();
 
-    ByteArrayInputStream bais = new ByteArrayInputStream(data);
-    try (DataInputStream dis = new DataInputStream(bais)) {
+    try (
+      ByteArrayInputStream bais = new ByteArrayInputStream(data);
+      DataInputStream dis = new DataInputStream(bais);
+    ) {
       for (Column col : schema) {
         // Object val = vals.get(col.getName());
         switch (col.getType()) {

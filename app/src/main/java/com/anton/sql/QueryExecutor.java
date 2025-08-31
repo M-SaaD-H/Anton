@@ -53,6 +53,10 @@ public class QueryExecutor {
         yield null;
       }
       case SELECT -> executeSelect(q);
+      case DELETE -> {
+        executeDelete(q);
+        yield null;
+      }
       default -> {
         System.out.println(q);
         throw new IllegalArgumentException("Invalid query type");
@@ -96,6 +100,17 @@ public class QueryExecutor {
       System.out.println("Failed to select tuples of table: " + q.getTableName() + ". E: " + e.getMessage());
       e.printStackTrace();
       return null;
+    }
+  }
+
+  public void executeDelete(Query q) {
+    try {
+      if (q.getCondition() == null || q.getCondition().isEmpty()) {
+        db.dropTable(q.getTableName());
+      }
+    } catch (Exception e) {
+      System.out.println("Error while deleting table: " + q.getTableName() + ". E: " + e.getMessage());
+      e.printStackTrace();
     }
   }
 }

@@ -59,6 +59,9 @@ public class PageManager implements AutoCloseable {
 
   @Override
   public void close() throws IOException {
+    // Clear the page cache first
+    pageCache.clear();
+    
     if (fileManager != null) {
       fileManager.close();
     }

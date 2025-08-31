@@ -30,9 +30,7 @@ public class Table {
     this.tupleIds = new ArrayList<>();
 
     try {
-      FileManager fileManager = new FileManager(fileName);
-      PageManager pageManager = new PageManager(fileManager);
-      this.recordManager = new RecordManager(pageManager);
+      this.recordManager = new RecordManager(new PageManager(new FileManager(fileName)));
     } catch (Exception e) {
       throw new RuntimeException("Failed to initialize table. E:" + e);
     }
