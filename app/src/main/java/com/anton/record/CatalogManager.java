@@ -34,7 +34,7 @@ public class CatalogManager {
     } else {
       saveCatalog(); // create empty catalog file
     }
-}
+  }
 
   // synchronized -> only one thread can execute this function at a time, to avoid inconsistensies
   public synchronized Table createTable(String tableName, List<Column> columns) throws IOException {
@@ -67,7 +67,7 @@ public class CatalogManager {
     if (table == null) {
       throw new IllegalArgumentException("Table does not exist: " + tableName);
     }
-    
+
     if (condition == null) {
       return table.selectAll(fields);
     }
@@ -89,49 +89,84 @@ public class CatalogManager {
       throw new RuntimeException("Table does not exist");
     }
 
-    // All table resources are closed after used
+    // Close all resources with proper error handling
+    IOException closeException = null;
     try {
+      // Ensure all file handles are properly closed
       table.close();
-    } catch (Exception e) {
-      System.err.println("Error occured while closing the table. E: " + e.getMessage());
+    } catch (IOException e) {
+      closeException = e;
+      System.err.println("Error occurred while closing the table. E: " + e.getMessage());
       e.printStackTrace();
     }
 
-    // Delete the table file associated with the dropped table
+    // Garbage collection -> should not be used in production, but can't do much about it as of now
+    System.gc();
+
+    // Small delay to allow OS to release file handles
+    // This is more predictable than System.gc() -> should not be used in production
+    try {
+      Thread.sleep(100);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+
+    // Attempt file deletion with retry logic
     File file = new File(table.getFileName());
     if (file.exists()) {
-      boolean deleted = false;
-      int retryCount = 0;
-      final int maxRetries = 3;
-      
-      while (!deleted && retryCount < maxRetries) {
-        deleted = file.delete();
-        if (!deleted) {
-          retryCount++;
-          if (retryCount < maxRetries) {
-            try {
-              // Wait a bit for the file handle to be fully released
-              Thread.sleep(100);
-            } catch (InterruptedException e) {
-              Thread.currentThread().interrupt();
-              break;
-            }
-          }
-        }
-      }
-      
+      boolean deleted = deleteFileWithRetry(file);
+
       if (!deleted) {
-        // If immediate deletion fails, schedule for deletion on JVM exit
+        System.err.println("WARNING: Could not delete file: " + file.getAbsolutePath());
         file.deleteOnExit();
-        System.out.println("Warning: Could not immediately delete file after " + maxRetries + " attempts, scheduled for deletion on exit: " + file.getAbsolutePath());
+        System.err.println("Scheduled the deletion");
       } else {
         System.out.println("Successfully deleted file: " + file.getAbsolutePath());
       }
     } else {
-      System.out.println("File does not exist: " + file.getAbsolutePath());
+      throw new RuntimeException("The table file does not exists.");
     }
 
-    saveCatalog();
+    // Save catalog after successful cleanup
+    try {
+      saveCatalog();
+    } catch (IOException e) {
+      if (closeException != null) {
+        e.addSuppressed(closeException);
+      }
+      throw e;
+    }
+
+    if (closeException != null) {
+      throw closeException;
+    }
+  }
+
+  private boolean deleteFileWithRetry(File file) {
+    final int maxRetries = 5;
+    final long[] delays = { 50, 100, 200, 500, 1000 }; // Progressive backoff
+
+    for (int i = 0; i < maxRetries; i++) {
+      if (file.delete()) {
+        return true;
+      }
+
+      // Check why deletion failed
+      if (!file.exists()) {
+        return true; // File was deleted by another process
+      }
+
+      if (i < maxRetries - 1) {
+        try {
+          Thread.sleep(delays[i]);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          return false;
+        }
+      }
+    }
+
+    return false;
   }
 
   // ========== Persistance ========== \\

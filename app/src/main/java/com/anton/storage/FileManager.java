@@ -6,6 +6,7 @@ import java.io.RandomAccessFile;
 
 public class FileManager implements AutoCloseable {
   private RandomAccessFile raf;
+  private volatile boolean isClosed = false;
 
   public FileManager(String filePath) throws IOException {
     File file = new File(filePath);
@@ -32,11 +33,28 @@ public class FileManager implements AutoCloseable {
 
   // close the file -> no read and write will be functional after this
   @Override
-  public void close() throws IOException {
-    if (raf != null) {
+  public synchronized void close() throws IOException {
+    if (isClosed || raf == null) {
+      return; // Already closed
+    }
+
+    try {
       // Flush any buffered data before closing
       raf.getFD().sync();
-      this.raf.close();
+    } catch (IOException e) {
+      System.err.println("Warning: Failed to sync file before closing: " + e.getMessage());
+      // Continue with close even if sync fails
+    } finally {
+      try {
+        this.raf.close();
+      } finally {
+        this.raf = null;
+        this.isClosed = true;
+      }
     }
+  }
+
+  public boolean isClosed() {
+    return this.isClosed;
   }
 }

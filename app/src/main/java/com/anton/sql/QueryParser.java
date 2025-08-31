@@ -16,6 +16,8 @@ public class QueryParser {
       return parseInsert(query);
     } else if (query.startsWith("SELECT")) {
       return parseSelect(query);
+    } else if (query.startsWith("DROP")) {
+      return parseDrop(query);
     } else if (query.startsWith("DELETE")) {
       return parseDelete(query);
     } else {
@@ -225,26 +227,13 @@ public class QueryParser {
     return new Query(QueryType.SELECT, tableName, fieldsToSelect, conditions);
   }
 
-  // Parse the DELETE query. There are two types of DELETE query, to delete a tuple(record) or to delete the whole table.
-  private Query parseDelete(String query) throws IllegalArgumentException {
-    if (!query.toUpperCase().startsWith("DELETE")) {
-      throw new IllegalArgumentException("Query must start with DELETE");
+  // DROP TABLE <TABLE_NAME>
+  // e.g. DROP TABLE users
+  private Query parseDrop(String query) throws IllegalArgumentException {
+    if (!query.toUpperCase().startsWith("DROP")) {
+      throw new IllegalArgumentException("Query must start with DROP");
     }
-    query = query.substring("DELETE".length()).trim();
-
-    String identifier = query.substring(0, query.indexOf(" ")).toUpperCase().trim();
-    if (identifier.equals("FROM")) {
-      return parseDeleteTuple(query);
-    } else if (identifier.equals("TABLE")) {
-      return parseDeleteTable(query);
-    } else {
-      throw new IllegalArgumentException("Invalid query format.");
-    }
-  }
-
-  // DELETE TABLE <TABLE_NAME>
-  // e.g. DELETE TABLE users
-  private Query parseDeleteTable(String query) throws IllegalArgumentException {
+    query = query.substring("DROP".length()).trim();
     String tableName = query.substring("TABLE".length()).trim();
     if (tableName.isEmpty()) {
       throw new IllegalArgumentException("Missing table name in DELETE statement.");
@@ -255,7 +244,7 @@ public class QueryParser {
 
   // DELETE FROM <TABLE_NAME> WHERE <CONDITION>
   // e.g. DELETE FROM users WHERE id=123
-  private Query parseDeleteTuple(String query) throws IllegalArgumentException {
+  private Query parseDelete(String query) throws IllegalArgumentException {
     String tableName = query.substring("FROM".length(), query.toUpperCase().indexOf("WHERE")).trim();
     if (tableName.isEmpty()) {
       throw new IllegalArgumentException("Missing table name in DELETE statement.");
