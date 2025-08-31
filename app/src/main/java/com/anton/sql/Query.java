@@ -5,53 +5,72 @@ import java.util.Map;
 
 import lombok.Getter;
 
+@Getter
+public abstract class Query {
+  private final QueryType type;
+  private final String tableName;
+
+  public Query(QueryType type, String tableName) {
+    this.type = type;
+    this.tableName = tableName;
+  }
+}
+
 enum QueryType {
-  CREATE_TABLE, SELECT, INSERT, UPDATE, DELETE
+  CREATE_TABLE, SELECT, INSERT, UPDATE, DELETE, DROP_TABLE
 }
 
 @Getter
-public class Query {
-  private final QueryType type;
-  private final String tableName;
-  private final Map<String, Object> values; // for INSERT and UPDATE query
-  private final List<String> fields; // for SELECT query
-  private final Map<String, Object> condition; // condition for SELECT query
-
-  // for INSERT, UPDATE, and CREATE TABLE query, and for DELETE query the values will empty
-  public Query(QueryType type, String tableName, Map<String, Object> values) {
-    if (type == null || tableName == null || values == null) {
-      throw new IllegalArgumentException("All fields are required to create a query");
-    }
-
-    if (type != QueryType.INSERT && type != QueryType.UPDATE && type != QueryType.CREATE_TABLE && type != QueryType.DELETE) {
-      throw new IllegalArgumentException("Invalid params for this query type: " + type);
-    }
-
-    this.type = type;
-    this.tableName = tableName;
-    this.values = values;
-
-    // set not required fields to null
-    this.condition = null;
-    this.fields = null;
+class CreateTableQuery extends Query {
+  private final Map<String, String> columns; // data type is accepted as a String, and will be casted in DataType while creating the table
+  public CreateTableQuery(String tableName, Map<String, String> columns) {
+    super(QueryType.CREATE_TABLE, tableName);
+    this.columns = columns;
   }
+}
 
-  // for SELECT query
-  public Query(QueryType type, String tableName, List<String> fields, Map<String, Object> condition) {
-    if (type == null || tableName == null) {
-      throw new IllegalArgumentException("All fields are required to create a query");
-    }
+@Getter
+class SelectQuery extends Query {
+  private final List<String> fields;
+  private final Map<String, Object> conditions;
+  public SelectQuery(String tableName, List<String> fields, Map<String, Object> conditions) {
+    super(QueryType.SELECT, tableName);
+    this.fields = fields;
+    this.conditions = conditions;
+  }
+}
 
-    if (type != QueryType.SELECT) {
-      throw new IllegalArgumentException("Invalid params for this query type: " + type);
-    }
+@Getter
+class InsertQuery extends Query {
+  private final Map<String, Object> values;
+  public InsertQuery(String tableName, Map<String, Object> values) {
+    super(QueryType.INSERT, tableName);
+    this.values = values;
+  }
+}
 
-    this.type = type;
-    this.tableName = tableName;
-    this.fields = fields; // fields can be null to select all the fields
-    this.condition = condition; // condition can be null to select all
+@Getter
+class UpdateQuery extends Query {
+  private final Map<String, Object> values;
+  private final Map<String, Object> conditions;
+  public UpdateQuery(String tableName, Map<String, Object> values, Map<String, Object> conditions) {
+    super(QueryType.UPDATE, tableName);
+    this.values = values;
+    this.conditions = conditions;
+  }
+}
 
-    // set not required fields to null
-    this.values = null;
+@Getter
+class DeleteQuery extends Query {
+  private final Map<String, Object> conditions;
+  public DeleteQuery(String tableName, Map<String, Object> conditions) {
+    super(QueryType.DELETE, tableName);
+    this.conditions = conditions;
+  }
+}
+
+class DropTableQuery extends Query {
+  public DropTableQuery(String tableName) {
+    super(QueryType.DROP_TABLE, tableName);
   }
 }

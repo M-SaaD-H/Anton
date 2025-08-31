@@ -57,6 +57,10 @@ public class QueryExecutor {
         executeDelete(q);
         yield null;
       }
+      case DROP_TABLE -> {
+        executeDropTable(q);
+        yield null;
+      }
       default -> {
         System.out.println(q);
         throw new IllegalArgumentException("Invalid query type");
@@ -64,8 +68,9 @@ public class QueryExecutor {
     };
   }
 
-  public void executeCreateTable(Query q) {
-    Map<String, Object> vals = q.getValues();
+  public void executeCreateTable(Query query) {
+    CreateTableQuery q = (CreateTableQuery) query;
+    Map<String, String> vals = q.getColumns();
     if (vals == null) {
       throw new RuntimeException("Invalid value map recieved while creating a new table in executor");
     }
@@ -83,7 +88,8 @@ public class QueryExecutor {
     }
   }
 
-  public void executeInsert(Query q) {
+  public void executeInsert(Query query) {
+    InsertQuery q = (InsertQuery) query;
     Tuple tuple = new Tuple(q.getValues());
     try {
       db.insertTuple(q.getTableName(), tuple);
@@ -93,9 +99,10 @@ public class QueryExecutor {
     }
   }
 
-  public List<Tuple> executeSelect(Query q) {
+  public List<Tuple> executeSelect(Query query) {
+    SelectQuery q = (SelectQuery) query;
     try {
-      return db.selectTuples(q.getTableName(), q.getCondition(), q.getFields());
+      return db.selectTuples(q.getTableName(), q.getConditions(), q.getFields());
     } catch (Exception e) {
       System.out.println("Failed to select tuples of table: " + q.getTableName() + ". E: " + e.getMessage());
       e.printStackTrace();
@@ -103,11 +110,20 @@ public class QueryExecutor {
     }
   }
 
-  public void executeDelete(Query q) {
+  public void executeDropTable(Query query) {
+    DropTableQuery q = (DropTableQuery) query;
     try {
-      if (q.getCondition() == null || q.getCondition().isEmpty()) {
-        db.dropTable(q.getTableName());
-      }
+      db.dropTable(q.getTableName());
+    } catch (Exception e) {
+      System.out.println("Error while dropping the table: " + q.getTableName() + ". E: " + e.getMessage());
+      e.printStackTrace();
+    }
+  }
+
+  public void executeDelete(Query query) {
+    DeleteQuery q = (DeleteQuery) query;
+    try {
+      db.delete(q.getTableName(), q.getConditions());
     } catch (Exception e) {
       System.out.println("Error while deleting table: " + q.getTableName() + ". E: " + e.getMessage());
       e.printStackTrace();

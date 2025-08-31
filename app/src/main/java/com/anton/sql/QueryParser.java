@@ -27,7 +27,7 @@ public class QueryParser {
 
   // CREATE TABLE <TABLE_NAME> (<FIELDS_WITH_DATA_TYPES>)
   // e.g. CREATE TABLE users ('id' INT, 'name' STRING)
-  private Query parseCreateTable(String query) throws IllegalArgumentException {
+  private CreateTableQuery parseCreateTable(String query) throws IllegalArgumentException {
     // Remove "CREATE TABLE" and trim
     if (!query.toUpperCase().startsWith("CREATE TABLE")) {
       throw new IllegalArgumentException("Query must start with 'CREATE TABLE'");
@@ -55,7 +55,7 @@ public class QueryParser {
     }
 
     String[] valuesPart = valuesString.split(",");
-    Map<String, Object> values = new HashMap<>();
+    Map<String, String> values = new HashMap<>();
 
     // build value map
     for (String val : valuesPart) {
@@ -83,12 +83,12 @@ public class QueryParser {
       throw new IllegalArgumentException("No valid columns found in CREATE TABLE statement.");
     }
 
-    return new Query(QueryType.CREATE_TABLE, tableName, values); // values = schema
+    return new CreateTableQuery(tableName, values);
   }
 
   // INSERT INTO <TABLE_NAME> VALUES (<FIELDS_WITH_VALUES>)
   // e.g. INSERT INTO users VALUES ('id' 1, 'name', 'Anton')
-  private Query parseInsert(String query) throws IllegalArgumentException {
+  private InsertQuery parseInsert(String query) throws IllegalArgumentException {
     // Remove "INSERT INTO" and trim
     if (!query.toUpperCase().startsWith("INSERT INTO")) {
       throw new IllegalArgumentException("Query must start with 'INSERT INTO'");
@@ -146,12 +146,12 @@ public class QueryParser {
       throw new IllegalArgumentException("No valid field-value pairs found in INSERT INTO statement.");
     }
 
-    return new Query(QueryType.INSERT, tableName, values);
+    return new InsertQuery(tableName, values);
   }
 
   // SELECT <PARAMS OR *> FROM <TABLE_NAME> WHERE <CONDITION>
   // e.g. SELECT id, name FROM users WHERE id=1
-  private Query parseSelect(String query) throws IllegalArgumentException {
+  private SelectQuery parseSelect(String query) throws IllegalArgumentException {
     // Basic validation
     if (!query.toUpperCase().startsWith("SELECT")) {
       throw new IllegalArgumentException("Query must start with SELECT");
@@ -224,12 +224,12 @@ public class QueryParser {
       }
     }
 
-    return new Query(QueryType.SELECT, tableName, fieldsToSelect, conditions);
+    return new SelectQuery(tableName, fieldsToSelect, conditions);
   }
 
   // DROP TABLE <TABLE_NAME>
   // e.g. DROP TABLE users
-  private Query parseDrop(String query) throws IllegalArgumentException {
+  private DropTableQuery parseDrop(String query) throws IllegalArgumentException {
     if (!query.toUpperCase().startsWith("DROP")) {
       throw new IllegalArgumentException("Query must start with DROP");
     }
@@ -239,12 +239,12 @@ public class QueryParser {
       throw new IllegalArgumentException("Missing table name in DELETE statement.");
     }
 
-    return new Query(QueryType.DELETE, tableName, new HashMap<>());
+    return new DropTableQuery(tableName);
   }
 
   // DELETE FROM <TABLE_NAME> WHERE <CONDITION>
   // e.g. DELETE FROM users WHERE id=123
-  private Query parseDelete(String query) throws IllegalArgumentException {
+  private DeleteQuery parseDelete(String query) throws IllegalArgumentException {
     String tableName = query.substring("FROM".length(), query.toUpperCase().indexOf("WHERE")).trim();
     if (tableName.isEmpty()) {
       throw new IllegalArgumentException("Missing table name in DELETE statement.");
@@ -278,6 +278,6 @@ public class QueryParser {
       throw new IllegalArgumentException("Conditions are empty after the WHERE clause in the SELECT statement.");
     }
 
-    return new Query(null, tableName, null, conditions);
+    return new DeleteQuery(tableName, conditions);
   }
 }
