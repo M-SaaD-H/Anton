@@ -12,6 +12,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.anton.storage.RecordId;
+
 // Responsible for storing meta data for our database
 public class CatalogManager {
   private final File catalogFile;
@@ -58,7 +60,8 @@ public class CatalogManager {
     if (table == null) {
       throw new IllegalArgumentException("Table does not exist: " + tableName);
     }
-    table.insert(tuple);
+    RecordId id = table.insert(tuple);
+    tuple.setId(id);
     saveCatalog();
   }
 
@@ -81,6 +84,16 @@ public class CatalogManager {
 
   public synchronized List<String> listTables() {
     return new ArrayList<>(tables.keySet());
+  }
+
+  public synchronized void deleteTuple(String tableName, Map<String, Object> condition) throws IOException {
+    Table table = this.tables.get(tableName);
+    if (table == null) {
+      throw new RuntimeException("Table does not exist");
+    }
+
+    table.delete(condition);
+    saveCatalog();
   }
 
   public synchronized void dropTable(String tableName) throws IOException {

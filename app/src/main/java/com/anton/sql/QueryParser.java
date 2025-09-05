@@ -245,6 +245,11 @@ public class QueryParser {
   // DELETE FROM <TABLE_NAME> WHERE <CONDITION>
   // e.g. DELETE FROM users WHERE id=123
   private DeleteQuery parseDelete(String query) throws IllegalArgumentException {
+    if (!query.toUpperCase().startsWith("DELETE")) {
+      throw new IllegalArgumentException("Query must start with DELETE");
+    }
+    query = query.substring("DELETE".length()).trim();
+
     String tableName = query.substring("FROM".length(), query.toUpperCase().indexOf("WHERE")).trim();
     if (tableName.isEmpty()) {
       throw new IllegalArgumentException("Missing table name in DELETE statement.");

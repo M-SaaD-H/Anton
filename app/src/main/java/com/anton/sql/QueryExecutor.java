@@ -123,7 +123,7 @@ public class QueryExecutor {
   public void executeDelete(Query query) {
     DeleteQuery q = (DeleteQuery) query;
     try {
-      db.delete(q.getTableName(), q.getConditions());
+      db.deleteTuple(q.getTableName(), q.getConditions());
     } catch (Exception e) {
       System.out.println("Error while deleting table: " + q.getTableName() + ". E: " + e.getMessage());
       e.printStackTrace();

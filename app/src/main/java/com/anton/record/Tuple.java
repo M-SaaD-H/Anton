@@ -10,7 +10,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.anton.storage.RecordId;
+
 public class Tuple {
+  private RecordId id;
   private final Map<String, Object> values;
 
   public Tuple(Map<String, Object> values) {
@@ -21,8 +24,25 @@ public class Tuple {
     this.values = values;
   }
 
+  public Tuple(Map<String, Object> values, RecordId id) {
+    this(values);
+    if (id == null) {
+      throw new RuntimeException("Can not create a tuple with 'null' id");
+    }
+
+    this.id = id;
+  }
+
   public Map<String, Object> getValues() {
     return this.values;
+  }
+
+  public RecordId getId() {
+    return this.id;
+  }
+
+  public void setId(RecordId id) {
+    this.id = id;
   }
 
   public Object getValue(String col) {

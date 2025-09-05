@@ -69,10 +69,12 @@ public class Table {
   public Tuple read(RecordId id) throws IOException {
     byte[] data = this.recordManager.readRecord(id);
     // return the de-serialized data
-    return Tuple.fromBytes(data, this.columns);
+    Tuple tuple = Tuple.fromBytes(data, this.columns);
+    tuple.setId(id);
+    return tuple;
   }
 
-  public boolean delete(RecordId id) throws IOException {
+  private boolean delete(RecordId id) throws IOException {
     try {
       this.recordManager.deleteRecord(id);
       System.out.println("Successfully deleted the record with page number: " + id.getPageNumber() + " and slot index: " + id.getSlotIndex());
@@ -82,6 +84,33 @@ public class Table {
       System.out.println("Failed to delete the record with page number: " + id.getPageNumber() + " and slot index: " + id.getSlotIndex());
       e.printStackTrace();
       return false;
+    }
+  }
+
+  public void delete(Map<String, Object> conditions) throws IOException {
+    System.out.println("Before deletion, tupleIds size: " + this.tupleIds.size());
+    List<Tuple> allTuples = this.selectAll(null);
+    List<RecordId> idsToDelete = new ArrayList<>();
+
+    for (Tuple t : allTuples) {
+      boolean match = true;
+      for (String field : conditions.keySet()) {
+        Object tupleValue = t.getValue(field);
+        Object conditionValue = conditions.get(field);
+        if (tupleValue == null || !tupleValue.toString().equals(conditionValue.toString())) {
+          match = false;
+          break;
+        }
+      }
+
+      // if all values match, then add it to the result list
+      if (match) {
+        idsToDelete.add(t.getId());
+      }
+    }
+    
+    for (RecordId id : idsToDelete) {
+      this.delete(id);
     }
   }
 
