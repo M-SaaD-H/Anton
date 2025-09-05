@@ -1,56 +1,68 @@
 package com.anton.record;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import org.junit.jupiter.api.*;
+import static org.junit.jupiter.api.Assertions.*;
+import java.io.File;
 
-public class TableDeletionTest {
-  public static void main(String[] args) {
-    try {
-      CatalogManager catalog = new CatalogManager("test_catalog.db");
-      
-      // Create two tables
-      System.out.println("Creating table1...");
-      catalog.createTable("table1", Arrays.asList(
-        new Column("id", DataType.INT),
-        new Column("name", DataType.STRING)
-      ));
-      
-      System.out.println("Creating table2...");
-      catalog.createTable("table2", Arrays.asList(
-        new Column("id", DataType.INT),
-        new Column("value", DataType.STRING)
-      ));
-      
-      // Insert some data
-      Map<String, Object> data1 = new HashMap<>();
-      data1.put("id", 1);
-      data1.put("name", "test1");
-      catalog.insertTuple("table1", new Tuple(data1));
-      
-      Map<String, Object> data2 = new HashMap<>();
-      data2.put("id", 2);
-      data2.put("value", "test2");
-      catalog.insertTuple("table2", new Tuple(data2));
-      
-      System.out.println("Tables created and data inserted successfully.");
-      System.out.println("Available tables: " + catalog.listTables());
-      
-      // Delete first table
-      System.out.println("\nDeleting table1...");
-      catalog.dropTable("table1");
-      System.out.println("table1 deleted successfully.");
-      System.out.println("Available tables: " + catalog.listTables());
-      
-      // Delete second table
-      System.out.println("\nDeleting table2...");
-      catalog.dropTable("table2");
-      System.out.println("table2 deleted successfully.");
-      System.out.println("Available tables: " + catalog.listTables());
-      System.out.println("\nTest completed successfully!");  
-    } catch (Exception e) {
-      System.err.println("Error: " + e.getMessage());
-      e.printStackTrace();
-    }
+class TableDeletionTest {
+  private static final String CATALOG_FILE = "test_catalog.db";
+
+  @BeforeEach
+  void cleanupBefore() {
+    File f = new File(CATALOG_FILE);
+    if (f.exists()) f.delete();
+    File t1 = new File("storage/table1.tbl");
+    if (t1.exists()) t1.delete();
+    File t2 = new File("storage/table2.tbl");
+    if (t2.exists()) t2.delete();
+  }
+
+  @Test
+  void testTableDeletion() throws Exception {
+    CatalogManager catalog = new CatalogManager(CATALOG_FILE);
+
+    // Create two tables
+    catalog.createTable("table1", java.util.Arrays.asList(
+      new Column("id", DataType.INT),
+      new Column("name", DataType.STRING)
+    ));
+    catalog.createTable("table2", java.util.Arrays.asList(
+      new Column("id", DataType.INT),
+      new Column("value", DataType.STRING)
+    ));
+
+    // Insert some data
+    java.util.Map<String, Object> data1 = new java.util.HashMap<>();
+    data1.put("id", 1);
+    data1.put("name", "test1");
+    catalog.insertTuple("table1", new Tuple(data1));
+
+    java.util.Map<String, Object> data2 = new java.util.HashMap<>();
+    data2.put("id", 2);
+    data2.put("value", "test2");
+    catalog.insertTuple("table2", new Tuple(data2));
+
+    assertTrue(catalog.listTables().contains("table1"));
+    assertTrue(catalog.listTables().contains("table2"));
+
+    // Delete first table
+    catalog.dropTable("table1");
+    assertFalse(catalog.listTables().contains("table1"));
+    assertTrue(new File("storage/table1.tbl").exists() == false);
+
+    // Delete second table
+    catalog.dropTable("table2");
+    assertFalse(catalog.listTables().contains("table2"));
+    assertTrue(new File("storage/table2.tbl").exists() == false);
+  }
+
+  @AfterEach
+  void cleanupAfter() {
+    File f = new File(CATALOG_FILE);
+    if (f.exists()) f.delete();
+    File t1 = new File("storage/table1.tbl");
+    if (t1.exists()) t1.delete();
+    File t2 = new File("storage/table2.tbl");
+    if (t2.exists()) t2.delete();
   }
 }

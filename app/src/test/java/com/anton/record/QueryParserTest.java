@@ -7,7 +7,7 @@ import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class QueryParserTest {
+class QueryParserTest {
   private static CatalogManager db;
   private static QueryExecutor executor;
 

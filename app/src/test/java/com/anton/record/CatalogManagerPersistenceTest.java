@@ -9,7 +9,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class CatalogManagerPersistenceTest {
+class CatalogManagerPersistenceTest {
   private static final String CATALOG_FILE = "test_catalog.db";
 
   @BeforeEach
