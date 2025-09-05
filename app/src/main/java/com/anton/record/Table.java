@@ -90,24 +90,7 @@ public class Table {
   public void delete(Map<String, Object> conditions) throws IOException {
     System.out.println("Before deletion, tupleIds size: " + this.tupleIds.size());
     List<Tuple> allTuples = this.selectAll(null);
-    List<RecordId> idsToDelete = new ArrayList<>();
-
-    for (Tuple t : allTuples) {
-      boolean match = true;
-      for (String field : conditions.keySet()) {
-        Object tupleValue = t.getValue(field);
-        Object conditionValue = conditions.get(field);
-        if (tupleValue == null || !tupleValue.toString().equals(conditionValue.toString())) {
-          match = false;
-          break;
-        }
-      }
-
-      // if all values match, then add it to the result list
-      if (match) {
-        idsToDelete.add(t.getId());
-      }
-    }
+    List<RecordId> idsToDelete = matchConditions(allTuples, conditions, "id");
     
     for (RecordId id : idsToDelete) {
       this.delete(id);
@@ -129,26 +112,37 @@ public class Table {
 
   public List<Tuple> select(Map<String, Object> conditions, List<String> fields) throws IOException {
     List<Tuple> allTuples = this.selectAll(null);
-    List<Tuple> tuples = new ArrayList<>();
+    List<Tuple> tuples = matchConditions(allTuples, conditions, "tuple");
 
-    for (Tuple t : allTuples) {
+    return projectRequiredFields(tuples, fields);
+  }
+
+  private <T> List<T> matchConditions(List<Tuple> items, Map<String, Object> conditions, String get) throws IOException {
+    List<T> matched = new ArrayList<>();
+    for (Tuple item : items) {
       boolean match = true;
       for (String field : conditions.keySet()) {
-        Object tupleValue = t.getValue(field);
+        Object tupleValue = item.getValue(field);
         Object conditionValue = conditions.get(field);
         if (tupleValue == null || !tupleValue.toString().equals(conditionValue.toString())) {
           match = false;
           break;
         }
       }
-
-      // if all values match, then add it to the result list
+      
       if (match) {
-        tuples.add(t);
+        if ("id".equals(get)) {
+          @SuppressWarnings("unchecked")
+          T id = (T) item.getId();
+          matched.add(id);
+        } else if ("tuple".equals(get)) {
+          @SuppressWarnings("unchecked")
+          T tuple = (T) item;
+          matched.add(tuple);
+        }
       }
     }
-
-    return projectRequiredFields(tuples, fields);
+    return matched;
   }
 
   private List<Tuple> projectRequiredFields(List<Tuple> tuples, List<String> fields) {
