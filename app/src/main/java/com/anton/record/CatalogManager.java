@@ -46,7 +46,12 @@ public class CatalogManager {
 
     String fileName = "storage/" + tableName.toLowerCase() + ".tbl";
     // create the table file
-    new File(fileName).createNewFile();
+    File tableFile = new File(fileName);
+    File parent = tableFile.getParentFile();
+    if (parent != null && !parent.exists()) {
+      parent.mkdirs();
+    }
+    tableFile.createNewFile();
 
     Table schema = new Table(tableName.toLowerCase(), columns, fileName);
     tables.put(tableName, schema);
