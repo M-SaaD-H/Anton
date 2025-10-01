@@ -3,6 +3,8 @@ package com.anton.sql;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.anton.storage.Slot;
 
@@ -12,7 +14,9 @@ public class BPlusTree<K extends Comparable<K>> {
 	// min number keys per node
 	private final int MIN_KEYS;
 	// root of the B+ Tree
-	private final BPlusTreeNode<K> root;
+	private BPlusTreeNode<K> root;
+	// Read Write lock for thread safety
+	private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
 	/* ========================== NODE HIERARCHY ====================== */
 
@@ -152,17 +156,17 @@ public class BPlusTree<K extends Comparable<K>> {
 		public boolean isUnderflow(int minSize) {
 			return this.routers.size() < minSize;
 		}
-		
+
 		@Override
 		public K getMinKey() {
 			return this.routers.isEmpty() ? null : this.routers.get(0).key;
 		}
-		
+
 		@Override
 		public K getMaxKey() {
 			return this.routers.isEmpty() ? null : this.routers.get(this.routers.size() - 1).key;
 		}
-		
+
 		@Override
 		public boolean isLeaf() {
 			return false;
@@ -212,7 +216,7 @@ public class BPlusTree<K extends Comparable<K>> {
 		
 		public List<BPlusTreeNode<K>> getAllChildren() {
 			List<BPlusTreeNode<K>> children = new ArrayList<>();
-			
+
 			if (this.firstChild != null) {
 				children.add(this.firstChild);
 			}
@@ -221,6 +225,13 @@ public class BPlusTree<K extends Comparable<K>> {
 			}
 
 			return children;
+		}
+
+		public List<Router<K>> split() {
+			int splitPoint = (this.routers.size() + 1) / 2;
+			List<Router<K>> rightRouters = new ArrayList<>(this.routers.subList(splitPoint, this.routers.size()));
+			this.routers.subList(splitPoint, this.routers.size()).clear();
+			return rightRouters;
 		}
 
 		@Override
@@ -255,17 +266,17 @@ public class BPlusTree<K extends Comparable<K>> {
 		public boolean isUnderflow(int minSize) {
 			return this.entries.size() < minSize;
 		}
-		
+
 		@Override
 		public K getMinKey() {
 			return this.entries.isEmpty() ? null : this.entries.get(0).key;
 		}
-		
+
 		@Override
 		public K getMaxKey() {
 			return this.entries.isEmpty() ? null : this.entries.get(this.entries.size() - 1).key;
 		}
-		
+
 		@Override
 		public boolean isLeaf() {
 			return true;
@@ -283,7 +294,7 @@ public class BPlusTree<K extends Comparable<K>> {
 
 		public void addEntry(Entry<K> entry) {
 			int insertPos = Collections.binarySearch(this.entries, entry);
-			
+
 			if (insertPos >= 0) {
 				// key already exists, replace the entry
 				this.entries.add(insertPos, entry);
@@ -313,32 +324,306 @@ public class BPlusTree<K extends Comparable<K>> {
 		}
 
 		// Linked list management
-		public LeafNode<K> getNext() { return this.next; }
-		public LeafNode<K> getPrevious() { return this.previous; }
-		public void setNext(LeafNode<K> next) { this.next = next; }
-		public void setPrevious(LeafNode<K> previous) { this.previous = previous; }
-		
+		public LeafNode<K> getNext() {
+			return this.next;
+		}
+
+		public LeafNode<K> getPrevious() {
+			return this.previous;
+		}
+
+		public void setNext(LeafNode<K> next) {
+			this.next = next;
+		}
+
+		public void setPrevious(LeafNode<K> previous) {
+			this.previous = previous;
+		}
+
 		@Override
 		public String toString() {
 			return String.format("LeafNode{size=%d, entries=%s}", this.entries.size(), this.entries);
 		}
 	}
 
-	// public BPlusTree() {
-	// 	this(3); // default order
-	// }
+	/* ========================== CONSTRUCTOR ====================== */
 
-	// public BPlusTree(int order) {
-	// 	if (order < 3) {
-	// 		throw new IllegalArgumentException("Order must be at least 3.");
-	// 	}
-	// 	this.ORDER = order;
-	// 	this.MIN_KEYS = (order - 1) / 2;
-	// 	this.root = new LeafNode<>();
-	// }
+	public BPlusTree() {
+		this(4); // default order
+	}
 
-	// find appropriate leaf node for the given key
-	// private Slot findLeaf(T key) {
-	// return this.root.keys.get(key);
-	// }
+	public BPlusTree(int order) {
+		if (order < 4) {
+			throw new IllegalArgumentException("Order must be at least 4.");
+		}
+
+		this.ORDER = order;
+		this.MIN_KEYS = (order + 1) / 2;
+		this.root = new LeafNode<>(order);
+	}
+
+	/* ========================== B+ Tree Methods ====================== */
+
+	// insert a key-value pair into the B+ Tree
+	public void insert(K key, Slot value) {
+		if (key == null || value == null) {
+			throw new IllegalArgumentException("Key and value can not be null.");
+		}
+
+		lock.writeLock().lock();
+		try {
+			LeafNode<K> leafNode = findLeafNode(key);
+			Entry<K> entry = new Entry<>(key, value);
+			leafNode.addEntry(entry);
+
+			// Split the leaf node, if needed
+			if (leafNode.isFull()) {
+				splitLeafNode(leafNode);
+			}
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to insert key: " + key, e);
+		} finally {
+			lock.writeLock().unlock();
+		}
+	}
+
+	// Search for a value associated with a given key
+	public Slot search(K key) {
+		if (key == null) {
+			throw new IllegalArgumentException("Key can not be null.");
+		}
+
+		lock.readLock().lock();
+		try {
+			LeafNode<K> leafNode = findLeafNode(key);
+			Entry<K> entry = leafNode.findEntry(key);
+			return entry != null ? entry.value : null;
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to search for key: " + key, e);
+		} finally {
+			lock.readLock().unlock();
+		}
+	}
+
+	// Delete a key from the B+ Tree
+	public boolean delete(K key) {
+		if (key == null) {
+			throw new IllegalArgumentException("Key can not be null.");
+		}
+
+		lock.writeLock().lock();
+		try {
+			LeafNode<K> leafNode = findLeafNode(key);
+			boolean removed = leafNode.removeEntry(key);
+
+			// Merge the leaf node, if needed
+			if (
+				removed &&
+				leafNode.isUnderflow(this.MIN_KEYS) &&
+				leafNode != this.root &&
+				leafNode.getParent() != null
+			) {
+				handleUnderflow(leafNode);
+			}
+
+			return removed;
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to delete key: " + key, e);
+		} finally {
+			lock.writeLock().unlock();
+		}
+	}
+
+	// rangeQueries: return all entries between the given keys
+	public List<Entry<K>> rangeQueries(K startKey, K endKey) {
+		if (startKey == null || endKey == null) {
+			throw new IllegalArgumentException("Start key and end key can not be null.");
+		}
+
+		if (startKey.compareTo(endKey) > 0) {
+			throw new IllegalArgumentException("Start key must be less than or equal to end key.");
+		}
+		
+		lock.readLock().lock();
+		try {
+			List<Entry<K>> entries = new ArrayList<>();
+			LeafNode<K> currentNode = findLeafNode(startKey);
+			
+			while (currentNode != null && currentNode.getMaxKey() != null && currentNode.getMaxKey().compareTo(endKey) <= 0) {
+				entries.addAll(currentNode.getEntries());
+				currentNode = currentNode.getNext();
+			}
+
+			for (Entry<K> e : currentNode.getEntries()) {
+				if (e.key.compareTo(startKey) >= 0 && e.key.compareTo(endKey) <= 0) {
+					entries.add(e);
+				}
+			}
+
+			return entries;
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to range query between keys: " + startKey + " and " + endKey, e);
+		} finally {
+			lock.readLock().unlock();
+		}
+	}
+
+	// Get all entries in sorted order
+	public List<Entry<K>> getAllEntries() {
+		lock.readLock().lock();
+		try {
+			List<Entry<K>> entries = new ArrayList<>();
+			LeafNode<K> currentNode = getFirstLeafNode();
+
+			while (currentNode != null && currentNode.getMaxKey() != null) {
+				entries.addAll(currentNode.getEntries());
+				currentNode = currentNode.getNext();
+			}
+
+			return entries;
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to get all entries", e);
+		} finally {
+			lock.readLock().unlock();
+		}
+	}
+
+	// Check if the tree contains a given key
+	public boolean contains(K key) {
+		if (key == null) {
+			throw new IllegalArgumentException("Key can not be null.");
+		}
+
+		return search(key) != null;
+	}
+
+	// Get total number of entries in the tree
+	public int getTotalEntries() {
+		lock.readLock().lock();
+		try {
+			return getAllEntries().size();
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to get total number of entries", e);
+		} finally {
+			lock.readLock().unlock();
+		}
+	}
+
+	public boolean isEmpty() {
+		lock.readLock().lock();
+		try {
+			return this.root.isLeaf() && this.root.size() == 0;
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to check if the tree is empty", e);
+		} finally {
+			lock.readLock().unlock();
+		}
+	}
+
+	public void clear() {
+		lock.writeLock().lock();
+		try {
+			this.root = new LeafNode<>(this.ORDER);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to clear the tree", e);
+		} finally {
+			lock.writeLock().unlock();
+		}
+	}
+	
+	/* ========================== PRIVATE HELPER METHODS ====================== */
+
+	// Find the leaf node for a given key
+	private LeafNode<K> findLeafNode(K key) {
+		BPlusTreeNode<K> currentNode = this.root;
+		while (!currentNode.isLeaf()) {
+			currentNode = ((InternalNode<K>) currentNode).findChild(key);
+		}
+		return (LeafNode<K>) currentNode;
+	}
+
+	// Get the first (leftmost) leaf node
+	private LeafNode<K> getFirstLeafNode() {
+		BPlusTreeNode<K> currentNode = this.root;
+		while (!currentNode.isLeaf()) {
+			currentNode = ((InternalNode<K>) currentNode).getFirstChild();
+		}
+		return (LeafNode<K>) currentNode;
+	}
+
+	// Split a leaf node
+	private void splitLeafNode(LeafNode<K> leaf) {
+		LeafNode<K> newLeaf = new LeafNode<>(this.ORDER);
+		List<Entry<K>> rightEntries = leaf.split(); // this is the new right leaf node that will be added to the right of the current leaf node
+		
+		for (Entry<K> entry : rightEntries) {
+			newLeaf.addEntry(entry);
+		}
+		
+		// Update the linked list -> add new leaf between previous leaf and it's next
+		newLeaf.setNext(leaf.getNext());
+		newLeaf.setPrevious(leaf);
+		if (leaf.getNext() != null) {
+			leaf.getNext().setPrevious(newLeaf);
+		}
+		leaf.setNext(newLeaf);
+
+		// Get the key to promote to the parent
+		K promotingKey = newLeaf.getMinKey();
+
+		if (leaf.getParent() != null || this.root.isLeaf()) {
+			// only root exists in the tree -> create new root
+			InternalNode<K> newRoot = new InternalNode<>(this.ORDER);
+			newRoot.setFirstChild(leaf);
+			newRoot.addRouter(new Router<K>(promotingKey, newLeaf));
+			this.root = newRoot;
+		}
+		else {
+			// Inserting into existing parent
+			InternalNode<K> parent = (InternalNode<K>) leaf.getParent();
+			newLeaf.setParent(parent);
+			parent.addRouter(new Router<K>(promotingKey, newLeaf));
+
+			// Split the parent node, if needed
+			if (parent.isFull()) {
+				splitInternalNode(parent);
+			}
+		}
+	}
+
+	private void splitInternalNode(InternalNode<K> node) {
+		InternalNode<K> newNode = new InternalNode<>(this.ORDER);
+		List<Router<K>> rightRouters = node.split();
+
+		// first router of the right routers half becomes the new first child
+		if (!rightRouters.isEmpty()) {
+			Router<K> firstRouter = rightRouters.remove(0);
+			newNode.setFirstChild(firstRouter.child);
+		}
+
+		// Add remaining rotuers to the newNode
+		for (Router<K> r : rightRouters) {
+			newNode.addRouter(r);
+		}
+
+		K promotingKey = newNode.getMinKey();
+
+		if (node.getParent() != null || this.root.isLeaf()) {
+			// only root exists in the tree -> create new root
+			InternalNode<K> newRoot = new InternalNode<>(this.ORDER);
+			newRoot.setFirstChild(node);
+			newRoot.addRouter(new Router<K>(promotingKey, newNode));
+			this.root = newRoot;
+		}
+		else {
+			// Inserting into existing parent
+			InternalNode<K> parent = (InternalNode<K>) node.getParent();
+			newNode.setParent(parent);
+			parent.addRouter(new Router<K>(promotingKey, newNode));
+
+			if (parent.isFull()) {
+				splitInternalNode(parent);
+			}
+		}
+	}
 }
