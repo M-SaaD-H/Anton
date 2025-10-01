@@ -198,6 +198,20 @@ public class BPlusTree<K extends Comparable<K>> {
 			router.child.setParent(this);
 		}
 
+		public void removeRouter(K key) {
+			this.routers.removeIf(r -> r.key.equals(key));
+		}
+
+		public void replaceRouter(K oldKey, Router<K> newRouter) {
+			for (int i = 0; i < this.routers.size(); i++) {
+				if (this.routers.get(i).key.equals(oldKey)) {
+					this.routers.set(i, newRouter);
+					newRouter.child.setParent(this);
+					return;
+				}
+			}
+		}
+
 		// to find the child within an internal node
 		public BPlusTreeNode<K> findChild(K key) {
 			if (this.routers.isEmpty()) {
@@ -625,5 +639,120 @@ public class BPlusTree<K extends Comparable<K>> {
 				splitInternalNode(parent);
 			}
 		}
+	}
+
+	// Handle underflow in leaf after deletion
+	private void handleUnderflow(LeafNode<K> leaf) {
+		InternalNode<K> parent = (InternalNode<K>) leaf.getParent();
+		// leaf is root, no underflow handling
+		if (parent.equals(null)) return;
+
+		// Try to borrow from right or left siblings
+		LeafNode<K> rightSibling = leaf.getNext();
+		LeafNode<K> leftSibling = leaf.getPrevious();
+
+		// try to borrow from siblings (child of the same parent as of leaf) which have enough keys to donate
+		if (leftSibling != null && leftSibling.getParent() == parent && leftSibling.size() > this.MIN_KEYS) {
+			// borrow from leftSibling
+			borrowFromLeftSibling(leaf, leftSibling, parent);
+		} else if (rightSibling != null && rightSibling.getParent() == parent && rightSibling.size() > this.MIN_KEYS) {
+			// borrow from rightSibling
+			borrowFromRightSibling(leaf, rightSibling, parent);
+		} else {
+			// Merge leaf nodes if enough keys are not present to borrow in either of the siblings
+			if (leftSibling != null && leftSibling.getParent() == parent) {
+				mergeLeafNodes(leftSibling, leaf, parent);
+			} else if (leftSibling != null && leftSibling.getParent() == parent) {
+				mergeLeafNodes(leaf, rightSibling, parent);
+			}
+		}
+	}
+
+	// Borrow an entry from left sibling
+	private void borrowFromLeftSibling(LeafNode<K> leaf, LeafNode<K> leftSibling, InternalNode<K> parent) {
+		// Save the old leaf min key BEFORE any changes
+		K oldLeafMinKey = leaf.getMinKey();
+
+		List<Entry<K>> leftEntries = leftSibling.getEntries();
+		Entry<K> borrowed = leftEntries.get(leftEntries.size() - 1);
+
+		leftSibling.removeEntry(borrowed.key);
+		leaf.addEntry(borrowed);
+
+		K newLeafMinKey = leaf.getMinKey();
+
+		if (!oldLeafMinKey.equals(newLeafMinKey)) {
+			// Update the parent's routers
+			parent.replaceRouter(oldLeafMinKey, new Router<K>(newLeafMinKey, leaf));
+		}
+	}
+
+	// Borrow an entry from right sibling
+	private void borrowFromRightSibling(LeafNode<K> leaf, LeafNode<K> rightSibling, InternalNode<K> parent) {
+		// Save the old leaf min key BEFORE any changes
+		K oldLeafMinKey = leaf.getMinKey();
+
+		List<Entry<K>> rightEntries = rightSibling.getEntries();
+		Entry<K> borrowed = rightEntries.get(0);
+
+		rightSibling.removeEntry(borrowed.key);
+		leaf.addEntry(borrowed);
+
+		K newLeafMinKey = leaf.getMinKey();
+
+		if (!oldLeafMinKey.equals(newLeafMinKey)) {
+			// Update the parent's routers
+			parent.replaceRouter(oldLeafMinKey, new Router<K>(newLeafMinKey, leaf));
+		}
+	}
+
+	// Merge leaf nodes if enough keys are not present to borrow in either of the siblings
+	private void mergeLeafNodes(LeafNode<K> left, LeafNode<K> right, InternalNode<K> parent) {
+		for (Entry<K> e : right.getEntries()) {
+			left.addEntry(e);
+		}
+
+		left.setNext(right.getNext());
+		if (right.getNext() != null) {
+			right.getNext().setPrevious(left);;
+		}
+
+		K rightMinKey = right.getMinKey();
+		parent.removeRouter(rightMinKey);
+
+		// check parent for underflow
+		if (parent.isUnderflow(this.MIN_KEYS) && parent.equals(this.root)) {
+			handleInternalNodeUnderflow(parent);
+		} else if (parent.equals(this.root) && parent.size() == 0) {
+			// Root has no routers, make left child the new root
+			this.root = left;
+			left.setParent(null);
+		}
+	}
+
+	/* ========================== UTILITY METHODS ====================== */
+
+	// Get the height of the tree
+	public int getHeight() {
+		lock.readLock().lock();
+		try {
+			int height = 0;
+			BPlusTreeNode<K> current = this.root;
+
+			while (!current.isLeaf()) {
+				height++;
+				InternalNode<K> internal = (InternalNode<K>) current;
+				current = internal.getFirstChild();
+			}
+
+			return height + 1;
+		} finally {
+			lock.readLock().unlock();
+		}
+	}
+
+	@Override
+	public String toString() {
+		return String.format("BPlusTree{order=%d, size=%d, height=%d}", ORDER, size(), getHeight());
 	}
 }
