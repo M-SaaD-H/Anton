@@ -480,6 +480,9 @@ public class BPlusTreeTest {
 			expectedKeys.remove(key);
 			keysToDelete.remove((Integer) key);
 		}
+
+		assertEquals(expectedKeys.size(), 236);
+		assertEquals(tree.size(), 197);
 		
 		assertEquals(expectedKeys.size(), tree.size());
 		

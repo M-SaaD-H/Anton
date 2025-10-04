@@ -6,12 +6,30 @@ import java.io.InputStreamReader;
 import java.util.List;
 
 import com.anton.record.Tuple;
+import com.anton.sql.BPlusTree;
 import com.anton.sql.QueryExecutor;
+import com.anton.storage.Slot;
 
 public class Main {
   public static void main(String[] args) {
     System.out.println("Anton is running.");
     BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+
+    BPlusTree<Integer> tree = new BPlusTree<>(4);
+
+    for (int i = 1; i <= 20; i++) {
+			tree.insert(i * 10, new Slot(i, i * 100));
+		}
+		
+		for (int i = 1; i <= 20; i++) {
+			tree.delete(i * 10);
+		}
+
+    System.out.println("size in main: " + tree.size());
+    
+    // tree.delete(70);
+
+    System.out.println("isEmpty: " + tree.isEmpty());
 
     while (true) {
       try {
