@@ -76,7 +76,7 @@ public class BPlusTree<K extends Comparable<K>> {
 			if (!(obj instanceof Router)) return false;
 
 			Router<?> router = (Router<?>) obj;
-			return this.key.equals(router.key);
+			return this.key.equals(router.key) && this.child == router.child;
 		}
 
 		@Override
@@ -206,6 +206,10 @@ public class BPlusTree<K extends Comparable<K>> {
 			this.routers.removeIf(r -> r.key.equals(key));
 		}
 
+		public void removeRouter(K key, BPlusTreeNode<K> child) {
+			this.routers.removeIf(r -> r.key.equals(key) && r.child == child);
+		}
+
 		public void replaceRouter(K oldKey, Router<K> newRouter) {
 			for (int i = 0; i < this.routers.size(); i++) {
 				if (this.routers.get(i).key.equals(oldKey)) {
@@ -232,7 +236,7 @@ public class BPlusTree<K extends Comparable<K>> {
 				}
 			}
 
-			// if key >= the last rotuer's key
+			// if key >= the last router's key
 			return this.routers.get(this.routers.size() - 1).child;
 		}
 		
@@ -258,7 +262,7 @@ public class BPlusTree<K extends Comparable<K>> {
 
 		@Override
 		public String toString() {
-			return String.format("InternalNode{size=%d, routers=%ds}", this.routers.size(), this.routers);
+			return String.format("InternalNode{size=%d, routers=%s}", this.routers.size(), this.routers);
 		}
 	}
 
@@ -552,15 +556,12 @@ public class BPlusTree<K extends Comparable<K>> {
 	public boolean isEmpty() {
 		lock.readLock().lock();
 		try {
-			System.out.println("isLeaf: " + this.root.isLeaf());
-			System.out.println("size: " + this.root.size());
-			System.out.println("tree size: " + this.size());
-			for (Router<K> r : ((InternalNode<K>) this.root).getRouters()) {
-				System.out.println("Min: " + r.child.getMinKey());
-				System.out.println("Max: " + r.child.getMaxKey());
+			if (this.root.isLeaf()) {
+				return this.root.size() == 0;
+			} else {
+				InternalNode<K> in = (InternalNode<K>) this.root;
+				return in.size() == 0 && in.getFirstChild() == null;
 			}
-			
-			return this.root.isLeaf() && this.root.size() == 0;
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to check if the tree is empty", e);
 		} finally {
@@ -585,7 +586,12 @@ public class BPlusTree<K extends Comparable<K>> {
 	private LeafNode<K> findLeafNode(K key) {
 		BPlusTreeNode<K> currentNode = this.root;
 		while (!currentNode.isLeaf()) {
-			currentNode = ((InternalNode<K>) currentNode).findChild(key);
+			InternalNode<K> in = (InternalNode<K>) currentNode;
+			BPlusTreeNode<K> child = in.findChild(key);
+			if (child == null) {
+				throw new IllegalStateException("Internal node has no child for key: " + key + " node: " + in);
+			}
+			currentNode = child;
 		}
 		return (LeafNode<K>) currentNode;
 	}
@@ -595,6 +601,9 @@ public class BPlusTree<K extends Comparable<K>> {
 		BPlusTreeNode<K> currentNode = this.root;
 		while (!currentNode.isLeaf()) {
 			currentNode = ((InternalNode<K>) currentNode).getFirstChild();
+			if (currentNode == null) {
+				return null;
+			}
 		}
 		return (LeafNode<K>) currentNode;
 	}
@@ -650,7 +659,7 @@ public class BPlusTree<K extends Comparable<K>> {
 			newNode.setFirstChild(firstRouter.child);
 		}
 
-		// Add remaining rotuers to the newNode
+		// Add remaining routers to the newNode
 		for (Router<K> r : rightRouters) {
 			newNode.addRouter(r);
 		}
@@ -681,7 +690,7 @@ public class BPlusTree<K extends Comparable<K>> {
 		InternalNode<K> parent = (InternalNode<K>) node.getParent();
 		if (parent == null || newKey == null) return;
 
-		// check it the router with oldKey exists
+		// check if the router with oldKey exists and points to this node
 		for (Router<K> r : parent.getRouters()) {
 			if (r.key.equals(oldKey) && r.child == node) {
 				// replace the router with oldKey to the one having newKey
@@ -703,6 +712,9 @@ public class BPlusTree<K extends Comparable<K>> {
 
 		InternalNode<K> parent = (InternalNode<K>) leaf.getParent();
 
+		// capture router key if nulls appear later
+		K capturedRouterKey = routerKey;
+
 		// remove leaf from the linked list
 		if (leaf.getPrevious() != null) {
 			leaf.getPrevious().setNext(leaf.getNext());
@@ -713,8 +725,18 @@ public class BPlusTree<K extends Comparable<K>> {
 		leaf.setNext(null);
 		leaf.setPrevious(null);
 
-		// remove router form parent
-		parent.removeRouter(routerKey);
+		// remove router from parent
+		if (capturedRouterKey != null) {
+			parent.removeRouter(capturedRouterKey, leaf);
+		} else {
+			// fallback: remove any router pointing to this leaf
+			for (Router<K> r : parent.getRouters()) {
+				if (r.child == leaf) {
+					parent.removeRouter(r.key, leaf);
+					break;
+				}
+			}
+		}
 
 		// Check if the leaf was the first child of the parent
 		if (parent.getFirstChild() == leaf) {
@@ -722,9 +744,9 @@ public class BPlusTree<K extends Comparable<K>> {
 				// Promote the first router's child to the firstChild of the InternalNode
 				Router<K> firstRouter = parent.getRouters().get(0);
 				parent.setFirstChild(firstRouter.child);
-				parent.removeRouter(firstRouter.key);
+				parent.removeRouter(firstRouter.key, firstRouter.child);
 			} else {
-				// parent have no router's left, set it's first child to null
+				// parent have no routers left, set its first child to null
 				parent.setFirstChild(null);
 			}
 		}
@@ -741,7 +763,7 @@ public class BPlusTree<K extends Comparable<K>> {
 			}
 		} else {
 			if (parent.size() == 0 && parent.getFirstChild() == null) {
-				// parent is competely empty - remove it recursively
+				// parent is completely empty - remove it recursively
 				removeEmptyInternalNode(parent);
 			} else if (parent.isUnderflow(this.MIN_KEYS)) {
 				handleInternalNodeUnderflow(parent);
@@ -766,7 +788,7 @@ public class BPlusTree<K extends Comparable<K>> {
 		}
 
 		if (routerKeyToRemove != null) {
-			parent.removeRouter(routerKeyToRemove);
+			parent.removeRouter(routerKeyToRemove, node);
 		}
 
 		// check if this 'node' is the firstChild of the parent
@@ -775,7 +797,7 @@ public class BPlusTree<K extends Comparable<K>> {
 				// the firstRouter to the firstChild of the parent
 				Router<K> firstRouter = parent.getRouters().get(0);
 				parent.setFirstChild(firstRouter.child);
-				parent.removeRouter(firstRouter.key);
+				parent.removeRouter(firstRouter.key, firstRouter.child);
 			} else {
 				// if there are no other router's of the parent - set it's firstChild to null
 				parent.setFirstChild(null);
@@ -795,7 +817,7 @@ public class BPlusTree<K extends Comparable<K>> {
 			if (parent.size() == 0 && parent.getFirstChild() == null) {
 				removeEmptyInternalNode(parent);
 			} else if (parent.isUnderflow(this.MIN_KEYS)) {
-				handleInternalNodeUnderflow(node);
+				handleInternalNodeUnderflow(parent);
 			}
 		}
 	}
@@ -804,7 +826,7 @@ public class BPlusTree<K extends Comparable<K>> {
 	private void handleLeafNodeUnderflow(LeafNode<K> leaf) {
 		InternalNode<K> parent = (InternalNode<K>) leaf.getParent();
 		// leaf is root, no underflow handling
-		if (parent.equals(null)) return;
+		if (parent == null) return;
 
 		// Try to borrow from right or left siblings
 		LeafNode<K> rightSibling = leaf.getNext();
@@ -829,7 +851,7 @@ public class BPlusTree<K extends Comparable<K>> {
 
 	// Borrow an entry from left sibling
 	private void borrowFromLeftSibling(LeafNode<K> leaf, LeafNode<K> leftSibling, InternalNode<K> parent) {
-		// Save the old left sibling max key BEFORE any changes
+		// Save the old left sibling min key BEFORE any changes
 		K oldLeftMinKey = leftSibling.getMinKey();
 
 		List<Entry<K>> leftEntries = leftSibling.getEntries();
@@ -838,10 +860,10 @@ public class BPlusTree<K extends Comparable<K>> {
 		leftSibling.removeEntry(borrowed.key);
 		leaf.addEntry(borrowed);
 
-		// Update the parent's router for the left sibling (since its max key changed)
+		// Update the parent's router for the left sibling (since its min key changed)
 		K newLeftMinKey = leftSibling.getMinKey();
 		if (oldLeftMinKey != null && newLeftMinKey != null && !oldLeftMinKey.equals(newLeftMinKey)) {
-			parent.replaceRouter(oldLeftMinKey, new Router<K>(newLeftMinKey, leaf));
+			replaceParentRouterForChild(parent, leftSibling, newLeftMinKey);
 		}
 	}
 
@@ -859,26 +881,27 @@ public class BPlusTree<K extends Comparable<K>> {
 		// Update the parent's router for the right sibling (since its min key changed)
 		K newRightMinKey = rightSibling.getMinKey();
 		if (oldRightMinKey != null && newRightMinKey != null && !oldRightMinKey.equals(newRightMinKey)) {
-			parent.replaceRouter(oldRightMinKey, new Router<K>(newRightMinKey, rightSibling));
+			replaceParentRouterForChild(parent, rightSibling, newRightMinKey);
 		}
 	}
 
 	// Merge leaf nodes if enough keys are not present to borrow in either of the siblings
 	private void mergeLeafNodes(LeafNode<K> left, LeafNode<K> right, InternalNode<K> parent) {
+		K rightMinKey = right.getMinKey(); // capture before mutation
+
 		for (Entry<K> e : right.getEntries()) {
 			left.addEntry(e);
 		}
 
 		left.setNext(right.getNext());
 		if (right.getNext() != null) {
-			right.getNext().setPrevious(left);;
+			right.getNext().setPrevious(left);
 			right.setNext(null);
 		}
 		right.setPrevious(null);
 		right.setParent(null);
 
-		K rightMinKey = right.getMinKey();
-		parent.removeRouter(rightMinKey);
+		parent.removeRouter(rightMinKey, right);
 
 		// check parent for underflow
 		if (parent.isUnderflow(this.MIN_KEYS) && parent != this.root) {
@@ -897,14 +920,14 @@ public class BPlusTree<K extends Comparable<K>> {
 		Router<K> borrowedRouter = leftRouters.get(leftRouters.size() - 1);
 		
 		// Remove from left sibling
-		leftSibling.removeRouter(borrowedRouter.key);
+		leftSibling.removeRouter(borrowedRouter.key, borrowedRouter.child);
 		
 		// Add to current node as first router
 		node.addRouter(borrowedRouter);
 		
 		// Update parent's router key for the left sibling (since its max key changed)
 		K newLeftMaxKey = leftSibling.getMaxKey();
-		parent.replaceRouter(borrowedRouter.key, new Router<K>(newLeftMaxKey, leftSibling));
+		replaceParentRouterForChild(parent, leftSibling, newLeftMaxKey);
 	}
 
 	// Borrow a router from right internal sibling
@@ -914,14 +937,14 @@ public class BPlusTree<K extends Comparable<K>> {
 		Router<K> borrowedRouter = rightRouters.get(0);
 		
 		// Remove from right sibling
-		rightSibling.removeRouter(borrowedRouter.key);
+		rightSibling.removeRouter(borrowedRouter.key, borrowedRouter.child);
 		
 		// Add to current node as last router
 		node.addRouter(borrowedRouter);
 		
 		// Update parent's router key for the right sibling (since its min key changed)
 		K newRightMinKey = rightSibling.getMinKey();
-		parent.replaceRouter(borrowedRouter.key, new Router<K>(newRightMinKey, rightSibling));
+		replaceParentRouterForChild(parent, rightSibling, newRightMinKey);
 	}
 
 	// Merge current node with left internal sibling
@@ -934,12 +957,12 @@ public class BPlusTree<K extends Comparable<K>> {
 		
 		// Remove the router pointing to current node from parent
 		K nodeMinKey = node.getMinKey();
-		parent.removeRouter(nodeMinKey);
+		parent.removeRouter(nodeMinKey, node);
 		
 		// Check if parent needs underflow handling
-		if (parent.isUnderflow(this.MIN_KEYS) && !parent.equals(this.root)) {
+		if (parent.isUnderflow(this.MIN_KEYS) && parent != this.root) {
 			handleInternalNodeUnderflow(parent);
-		} else if (parent.equals(this.root) && parent.size() == 0) {
+		} else if (parent == this.root && parent.size() == 0) {
 			// Root has no routers, make left sibling the new root
 			this.root = leftSibling;
 			leftSibling.setParent(null);
@@ -956,36 +979,17 @@ public class BPlusTree<K extends Comparable<K>> {
 		
 		// Remove the router pointing to right sibling from parent
 		K rightMinKey = rightSibling.getMinKey();
-		parent.removeRouter(rightMinKey);
+		parent.removeRouter(rightMinKey, rightSibling);
 		
 		// Check if parent needs underflow handling
-		if (parent.isUnderflow(this.MIN_KEYS) && !parent.equals(this.root)) {
+		if (parent.isUnderflow(this.MIN_KEYS) && parent != this.root) {
 			handleInternalNodeUnderflow(parent);
-		} else if (parent.equals(this.root) && parent.size() == 0) {
+		} else if (parent == this.root && parent.size() == 0) {
 			// Root has no routers, make current node the new root
 			this.root = node;
 			node.setParent(null);
 		}
 	}
-
-	// private void handleInternalNodeUnderflow(InternalNode<K> node) {
-	// 	InternalNode<K> parent = (InternalNode<K>) node.getParent();
-	// 	if (parent.equals(null)) return;
-
-	// 	if (parent.equals(this.root) && parent.size() == 0) {
-	// 		this.root = parent.getFirstChild();
-	// 		this.root.setParent(null);
-	// 	}
-
-	// 	// Find siblings and merge or borrow (simplified, not production ready)
-	// 	List<BPlusTreeNode<K>> siblings = parent.getAllChildren();
-	// 	int nodeIdx = siblings.indexOf(node);
-
-	// 	if (nodeIdx > 0) {
-	// 		BPlusTreeNode<K> leftSibling = siblings.get(nodeIdx - 1);
-	// 		if (!leftSibling.isLeaf() && leftSibling.size() > this.MIN_KEYS) {}
-	// 	}
-	// }
 
 	// Handle underflow in an internal node.
 	// When a node has fewer than the minimum allowed keys, we attempt to borrow from siblings or merge.
@@ -1058,5 +1062,23 @@ public class BPlusTree<K extends Comparable<K>> {
 	@Override
 	public String toString() {
 		return String.format("BPlusTree{order=%d, size=%d, height=%d}", this.ORDER, this.size(), this.getHeight());
+	}
+
+	/* ===================== Helper: parent router updates ===================== */
+
+	/**
+	 * Replace the router entry in the parent that points to `child` with a new key.
+	 * This searches parent's routers for the one whose child == provided child and replaces that router.
+	 */
+	private void replaceParentRouterForChild(InternalNode<K> parent, BPlusTreeNode<K> child, K newKey) {
+		if (parent == null || child == null || newKey == null) return;
+
+		for (Router<K> r : parent.getRouters()) {
+			if (r.child == child) {
+				parent.replaceRouter(r.key, new Router<>(newKey, child));
+				return;
+			}
+		}
+		// If the child is parent's firstChild, there may not be a router to replace; nothing to do in that case.
 	}
 }
