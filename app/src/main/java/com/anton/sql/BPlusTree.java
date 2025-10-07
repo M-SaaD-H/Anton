@@ -440,7 +440,15 @@ public class BPlusTree<K extends Comparable<K>> {
 		try {
 			LeafNode<K> leaf = findLeafNode(key);
 			K oldMinKey = leaf.getMinKey();
+			System.out.println("Before:");
+			for (Entry<K> e : leaf.getEntries()) {
+				System.out.println(leaf.getEntries().indexOf(e) + " : " + e);
+			}
 			boolean removed = leaf.removeEntry(key);
+			System.out.println("After:");
+			for (Entry<K> e : leaf.getEntries()) {
+				System.out.println(leaf.getEntries().indexOf(e) + " : " + e);
+			}
 
 			// Merge the leaf node, if needed
 			if (removed) {
@@ -545,6 +553,9 @@ public class BPlusTree<K extends Comparable<K>> {
 	public int size() {
 		lock.readLock().lock();
 		try {
+			for (Entry<K> e : getAllEntries()) {
+				System.out.println(getAllEntries().indexOf(e) + " : " + e);
+			}
 			return getAllEntries().size();
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to get total number of entries", e);
@@ -947,47 +958,98 @@ public class BPlusTree<K extends Comparable<K>> {
 		replaceParentRouterForChild(parent, rightSibling, newRightMinKey);
 	}
 
-	// Merge current node with left internal sibling
+	// Merge current node with its left internal sibling
 	private void mergeWithLeftSiblingInternal(InternalNode<K> node, InternalNode<K> leftSibling, InternalNode<K> parent) {
-		// Move all routers from current node to left sibling
-		List<Router<K>> nodeRouters = node.getRouters();
-		for (Router<K> router : nodeRouters) {
+		// Find separator key between leftSibling and node
+		K separatorKey = null;
+		for (Router<K> router : parent.getRouters()) {
+			if (router.child == node) {
+				separatorKey = router.key;
+				break;
+			}
+		}
+
+		if (separatorKey == null && parent.getFirstChild() == leftSibling) {
+			List<Router<K>> routers = parent.getRouters();
+			if (!routers.isEmpty() && routers.get(0).child == node) {
+				separatorKey = routers.get(0).key;
+			}
+		}
+
+		if (separatorKey == null) {
+			throw new IllegalStateException("Cannot find separator key between left and current node");
+		}
+
+		// Pull down separator with node's firstChild
+		BPlusTreeNode<K> nodeFirstChild = node.getFirstChild();
+		if (nodeFirstChild != null) {
+			Router<K> separatorRouter = new Router<>(separatorKey, nodeFirstChild);
+			nodeFirstChild.setParent(leftSibling);
+			leftSibling.addRouter(separatorRouter);
+		}
+
+		// Move all routers from node to leftSibling
+		for (Router<K> router : new ArrayList<>(node.getRouters())) {
+			router.child.setParent(leftSibling);
 			leftSibling.addRouter(router);
 		}
-		
-		// Remove the router pointing to current node from parent
-		K nodeMinKey = node.getMinKey();
-		parent.removeRouter(nodeMinKey, node);
-		
-		// Check if parent needs underflow handling
-		if (parent.isUnderflow(this.MIN_KEYS) && parent != this.root) {
-			handleInternalNodeUnderflow(parent);
-		} else if (parent == this.root && parent.size() == 0) {
-			// Root has no routers, make left sibling the new root
+
+		// Remove the separator from parent
+		parent.removeRouter(separatorKey);
+
+		// Handle parent underflow or root update
+		if (parent == this.root && parent.size() == 0) {
 			this.root = leftSibling;
 			leftSibling.setParent(null);
+		} else if (parent.isUnderflow(this.MIN_KEYS)) {
+			handleInternalNodeUnderflow(parent);
 		}
 	}
 
-	// Merge current node with right internal sibling
+
+	// Merge current node with its right internal sibling
 	private void mergeWithRightSiblingInternal(InternalNode<K> node, InternalNode<K> rightSibling, InternalNode<K> parent) {
-		// Move all routers from right sibling to current node
-		List<Router<K>> rightRouters = rightSibling.getRouters();
-		for (Router<K> router : rightRouters) {
+		// Find separator key between node and rightSibling
+		K separatorKey = null;
+		for (Router<K> router : parent.getRouters()) {
+			if (router.child == rightSibling) {
+				separatorKey = router.key;
+				break;
+			}
+		}
+		if (separatorKey == null && parent.getFirstChild() == node) {
+			List<Router<K>> routers = parent.getRouters();
+			if (!routers.isEmpty() && routers.get(0).child == rightSibling) {
+				separatorKey = routers.get(0).key;
+			}
+		}
+		if (separatorKey == null) {
+			throw new IllegalStateException("Cannot find separator key between node and right sibling");
+		}
+
+		// Pull down separator with rightSibling's firstChild
+		BPlusTreeNode<K> rightFirstChild = rightSibling.getFirstChild();
+		if (rightFirstChild != null) {
+			Router<K> separatorRouter = new Router<>(separatorKey, rightFirstChild);
+			rightFirstChild.setParent(node);
+			node.addRouter(separatorRouter);
+		}
+
+		// Move all routers from rightSibling to node
+		for (Router<K> router : new ArrayList<>(rightSibling.getRouters())) {
+			router.child.setParent(node);
 			node.addRouter(router);
 		}
-		
-		// Remove the router pointing to right sibling from parent
-		K rightMinKey = rightSibling.getMinKey();
-		parent.removeRouter(rightMinKey, rightSibling);
-		
-		// Check if parent needs underflow handling
-		if (parent.isUnderflow(this.MIN_KEYS) && parent != this.root) {
-			handleInternalNodeUnderflow(parent);
-		} else if (parent == this.root && parent.size() == 0) {
-			// Root has no routers, make current node the new root
+
+		// Remove the separator from parent
+		parent.removeRouter(separatorKey);
+
+		// Handle parent underflow or root update
+		if (parent == this.root && parent.size() == 0) {
 			this.root = node;
 			node.setParent(null);
+		} else if (parent.isUnderflow(this.MIN_KEYS)) {
+			handleInternalNodeUnderflow(parent);
 		}
 	}
 
