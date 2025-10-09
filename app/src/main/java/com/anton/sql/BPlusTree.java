@@ -14,20 +14,20 @@ public class BPlusTree<K extends Comparable<K>> {
 	// min number keys per node
 	private final int MIN_KEYS;
 	// root of the B+ Tree
-	private BPlusTreeNode<K> root;
+	private Node<K> root;
 	// Read Write lock for thread safety
 	private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
 	/* ========================== NODE HIERARCHY ====================== */
 
 	// Abstract base class for B+ Tree Nodes
-	public static abstract class BPlusTreeNode<K extends Comparable<K>> {
+	public static abstract class Node<K extends Comparable<K>> {
 		// pointers to traverse on the tree
-		protected volatile BPlusTreeNode<K> parent;
+		protected volatile Node<K> parent;
 		// max keys per node
 		protected final int maxSize;
 
-		public BPlusTreeNode(int maxSize) {
+		public Node(int maxSize) {
 			this.parent = null;
 			this.maxSize = maxSize;
 		}
@@ -41,11 +41,11 @@ public class BPlusTree<K extends Comparable<K>> {
 		public abstract boolean isLeaf();
 
 		// Common functionality
-		public BPlusTreeNode<K> getParent() {
+		public Node<K> getParent() {
 			return this.parent;
 		}
 
-		public void setParent(BPlusTreeNode<K> parent) {
+		public void setParent(Node<K> parent) {
 			this.parent = parent;
 		}
 	}
@@ -54,9 +54,9 @@ public class BPlusTree<K extends Comparable<K>> {
 	// Contains key and pointer to the child node
 	public static final class Router<K extends Comparable<K>> implements Comparable<Router<K>> {
 		public final K key;
-		public final BPlusTreeNode<K> child;
+		public final Node<K> child;
 
-		public Router(K key, BPlusTreeNode<K> child) {
+		public Router(K key, Node<K> child) {
 			if (key == null || child == null) {
 				throw new IllegalArgumentException("Key and child can not be null.");
 			}
@@ -132,9 +132,9 @@ public class BPlusTree<K extends Comparable<K>> {
 
 	// Internal Node
 	// Stores routing information and child pointers
-	public static final class InternalNode<K extends Comparable<K>> extends BPlusTreeNode<K> {
+	public static final class InternalNode<K extends Comparable<K>> extends Node<K> {
 		private List<Router<K>> routers;
-		private volatile BPlusTreeNode<K> firstChild; // Leftmost child (for keys < first routing key)
+		private volatile Node<K> firstChild; // Leftmost child (for keys < first routing key)
 
 		public InternalNode(int maxSize) {
 			super(maxSize);
@@ -178,11 +178,11 @@ public class BPlusTree<K extends Comparable<K>> {
 			return Collections.unmodifiableList(this.routers);
 		}
 
-		public BPlusTreeNode<K> getFirstChild() {
+		public Node<K> getFirstChild() {
 			return this.firstChild;
 		}
 
-		public void setFirstChild(BPlusTreeNode<K> child) {
+		public void setFirstChild(Node<K> child) {
 			this.firstChild = child;
 			if (child != null) {
 				this.firstChild.setParent(this);
@@ -206,7 +206,7 @@ public class BPlusTree<K extends Comparable<K>> {
 			this.routers.removeIf(r -> r.key.equals(key));
 		}
 
-		public void removeRouter(K key, BPlusTreeNode<K> child) {
+		public void removeRouter(K key, Node<K> child) {
 			this.routers.removeIf(r -> r.key.equals(key) && r.child == child);
 		}
 
@@ -221,7 +221,7 @@ public class BPlusTree<K extends Comparable<K>> {
 		}
 
 		// to find the child within an internal node
-		public BPlusTreeNode<K> findChild(K key) {
+		public Node<K> findChild(K key) {
 			if (this.routers.isEmpty()) {
 				return this.firstChild;
 			}
@@ -240,8 +240,8 @@ public class BPlusTree<K extends Comparable<K>> {
 			return this.routers.get(this.routers.size() - 1).child;
 		}
 		
-		public List<BPlusTreeNode<K>> getAllChildren() {
-			List<BPlusTreeNode<K>> children = new ArrayList<>();
+		public List<Node<K>> getAllChildren() {
+			List<Node<K>> children = new ArrayList<>();
 
 			if (this.firstChild != null) {
 				children.add(this.firstChild);
@@ -266,7 +266,7 @@ public class BPlusTree<K extends Comparable<K>> {
 		}
 	}
 
-	public static final class LeafNode<K extends Comparable<K>> extends BPlusTreeNode<K> {
+	public static final class LeafNode<K extends Comparable<K>> extends Node<K> {
 		private final List<Entry<K>> entries;
 		private volatile LeafNode<K> next;
 		private volatile LeafNode<K> previous;
@@ -586,10 +586,10 @@ public class BPlusTree<K extends Comparable<K>> {
 
 	// Find the leaf node for a given key
 	private LeafNode<K> findLeafNode(K key) {
-		BPlusTreeNode<K> currentNode = this.root;
+		Node<K> currentNode = this.root;
 		while (!currentNode.isLeaf()) {
 			InternalNode<K> in = (InternalNode<K>) currentNode;
-			BPlusTreeNode<K> child = in.findChild(key);
+			Node<K> child = in.findChild(key);
 			if (child == null) {
 				throw new IllegalStateException("Internal node has no child for key: " + key + " node: " + in);
 			}
@@ -600,7 +600,7 @@ public class BPlusTree<K extends Comparable<K>> {
 
 	// Get the first (leftmost) leaf node
 	private LeafNode<K> getFirstLeafNode() {
-		BPlusTreeNode<K> currentNode = this.root;
+		Node<K> currentNode = this.root;
 		while (!currentNode.isLeaf()) {
 			currentNode = ((InternalNode<K>) currentNode).getFirstChild();
 			if (currentNode == null) {
@@ -691,7 +691,7 @@ public class BPlusTree<K extends Comparable<K>> {
 	}
 
 	// Update the parent's routers after deletion
-	private void updateParentRouter(BPlusTreeNode<K> node, K oldKey, K newKey) {
+	private void updateParentRouter(Node<K> node, K oldKey, K newKey) {
 		InternalNode<K> parent = (InternalNode<K>) node.getParent();
 		if (parent == null || newKey == null) return;
 
@@ -958,7 +958,7 @@ public class BPlusTree<K extends Comparable<K>> {
 		K separatorKey = findSeparatorKeyBetween(parent, leftSibling, node);
 
 		// Pull down separator with node's firstChild
-		BPlusTreeNode<K> nodeFirstChild = node.getFirstChild();
+		Node<K> nodeFirstChild = node.getFirstChild();
 		if (nodeFirstChild != null) {
 			Router<K> separatorRouter = new Router<>(separatorKey, nodeFirstChild);
 			nodeFirstChild.setParent(leftSibling);
@@ -990,7 +990,7 @@ public class BPlusTree<K extends Comparable<K>> {
 		K separatorKey = findSeparatorKeyBetween(parent, node, rightSibling);
 
 		// Pull down separator with rightSibling's firstChild
-		BPlusTreeNode<K> rightFirstChild = rightSibling.getFirstChild();
+		Node<K> rightFirstChild = rightSibling.getFirstChild();
 		if (rightFirstChild != null) {
 			Router<K> separatorRouter = new Router<>(separatorKey, rightFirstChild);
 			rightFirstChild.setParent(node);
@@ -1047,7 +1047,7 @@ public class BPlusTree<K extends Comparable<K>> {
 		// Root node can't underflow in this context, or tree is empty, no action needed
 		if (parent == null) return;
 
-		List<BPlusTreeNode<K>> siblings = parent.getAllChildren();
+		List<Node<K>> siblings = parent.getAllChildren();
 		int nodeIndex = siblings.indexOf(node);
 
 		// Try to borrow from the left sibling
@@ -1094,7 +1094,7 @@ public class BPlusTree<K extends Comparable<K>> {
 		lock.readLock().lock();
 		try {
 			int height = 0;
-			BPlusTreeNode<K> current = this.root;
+			Node<K> current = this.root;
 
 			while (!current.isLeaf()) {
 				height++;
@@ -1119,7 +1119,7 @@ public class BPlusTree<K extends Comparable<K>> {
 	 * Replace the router entry in the parent that points to `child` with a new key.
 	 * This searches parent's routers for the one whose child == provided child and replaces that router.
 	 */
-	private void replaceParentRouterForChild(InternalNode<K> parent, BPlusTreeNode<K> child, K newKey) {
+	private void replaceParentRouterForChild(InternalNode<K> parent, Node<K> child, K newKey) {
 		if (parent == null || child == null || newKey == null) return;
 
 		for (Router<K> r : parent.getRouters()) {
